@@ -27,7 +27,8 @@ AI、JavaFX 和 WebSocket 均有稳定模块边界，队员可以并行实现。
 ```powershell
 .\mvnw.cmd test
 .\mvnw.cmd package
-.\mvnw.cmd -pl jieqi-gui -am javafx:run
+.\mvnw.cmd install
+.\mvnw.cmd -f .\jieqi-gui\pom.xml javafx:run
 java -jar .\jieqi-server\target\jieqi-server-0.1.0-SNAPSHOT-all.jar
 docker compose up --build
 ```
