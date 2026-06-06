@@ -1,0 +1,9 @@
+services:
+  jieqi-server:
+    build:
+      context: .
+      dockerfile: jieqi-server/Dockerfile
+    ports:
+      - "8887:8887"
+    restart: unless-stopped
+

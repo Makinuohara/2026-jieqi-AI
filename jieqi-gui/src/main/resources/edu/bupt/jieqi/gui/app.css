@@ -1,0 +1,35 @@
+.root {
+    -fx-font-family: "Segoe UI", "Microsoft YaHei";
+    -fx-background-color: #f5f1e8;
+}
+
+.title {
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #7a2e2e;
+}
+
+.subtitle {
+    -fx-font-size: 15px;
+    -fx-text-fill: #665f55;
+}
+
+.button {
+    -fx-font-size: 14px;
+    -fx-padding: 10 16;
+}
+
+.square {
+    -fx-min-width: 54px;
+    -fx-min-height: 48px;
+    -fx-background-color: #dfbd80;
+    -fx-border-color: #7f5d30;
+    -fx-opacity: 1;
+}
+
+.panel {
+    -fx-padding: 14px;
+    -fx-background-color: #fffaf0;
+    -fx-border-color: #c8bda9;
+}
+

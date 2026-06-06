@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>edu.bupt.jieqi</groupId>
+        <artifactId>jieqi-arena</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+    <artifactId>jieqi-app</artifactId>
+    <dependencies>
+        <dependency>
+            <groupId>edu.bupt.jieqi</groupId>
+            <artifactId>jieqi-gui</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.bupt.jieqi</groupId>
+            <artifactId>jieqi-server</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>
+
