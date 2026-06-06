@@ -18,21 +18,24 @@ import javafx.stage.Stage;
 public final class JieqiApplication extends Application {
     @Override
     public void start(Stage stage) {
-        stage.setTitle("Jieqi Arena");
+        stage.setTitle("揭棋竞技场");
         stage.setScene(new Scene(home(stage), 980, 680));
         stage.show();
     }
 
     private BorderPane home(Stage stage) {
-        Label title = new Label("Jieqi Arena");
+        Label title = new Label("揭棋竞技场");
         title.getStyleClass().add("title");
-        Label subtitle = new Label("2026 Java OOP project framework");
+        Label subtitle = new Label("2026 年 Java 面向对象大作业");
         subtitle.getStyleClass().add("subtitle");
 
         VBox actions = new VBox(14);
         actions.setMaxWidth(360);
-        for (String mode : List.of("Human vs AI", "Local AI vs AI", "Network Match / AI Arena",
-                "Start Server")) {
+        for (String mode : List.of(
+                "真人对人工智能",
+                "本地人工智能对弈",
+                "联网对弈与人工智能比赛",
+                "启动对弈服务器")) {
             Button button = new Button(mode);
             button.setMaxWidth(Double.MAX_VALUE);
             button.setOnAction(event -> stage.getScene().setRoot(gameShell(stage, mode)));
@@ -50,9 +53,9 @@ public final class JieqiApplication extends Application {
     private BorderPane gameShell(Stage stage, String mode) {
         VBox left = new VBox(12,
                 new Label(mode),
-                new Label("Red: not connected"),
-                new Label("Black: not connected"),
-                new Label("Turn clock: 60s + 5s grace"));
+                new Label("红方：未连接"),
+                new Label("黑方：未连接"),
+                new Label("回合计时：60 秒，另加 5 秒网络容差"));
         left.getStyleClass().add("panel");
         left.setPrefWidth(210);
 
@@ -60,7 +63,7 @@ public final class JieqiApplication extends Application {
         board.setAlignment(Pos.CENTER);
         for (int rank = 9; rank >= 0; rank--) {
             for (int file = 0; file < 9; file++) {
-                Button square = new Button(String.valueOf((char) ('a' + file)) + rank);
+                Button square = new Button("");
                 square.getStyleClass().add("square");
                 square.setDisable(true);
                 board.add(square, file, 9 - rank);
@@ -68,16 +71,16 @@ public final class JieqiApplication extends Application {
         }
 
         ListView<String> moves = new ListView<>();
-        moves.getItems().add("Framework ready. Full game wiring is a team task.");
-        VBox right = new VBox(10, new Label("Move record"), moves,
-                new Button("Pause"), new Button("Single step"), new Button("Resign"));
+        moves.getItems().add("初级框架已就绪，完整对局功能仍需继续实现。");
+        VBox right = new VBox(10, new Label("走法记录"), moves,
+                new Button("暂停"), new Button("单步"), new Button("认输"));
         right.getStyleClass().add("panel");
         right.setPrefWidth(240);
         VBox.setVgrow(moves, Priority.ALWAYS);
 
-        Button back = new Button("Back");
+        Button back = new Button("返回");
         back.setOnAction(event -> stage.getScene().setRoot(home(stage)));
-        HBox header = new HBox(14, back, new Label("Mode: " + mode));
+        HBox header = new HBox(14, back, new Label("当前模式：" + mode));
         header.setAlignment(Pos.CENTER_LEFT);
 
         BorderPane root = new BorderPane(board, header, right, null, left);
@@ -100,4 +103,3 @@ public final class JieqiApplication extends Application {
         launchApp(args);
     }
 }
-

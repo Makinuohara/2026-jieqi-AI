@@ -1,14 +1,3 @@
-# Team Tasks
-
-| Role | Contribution | Ownership |
-|---|---:|---|
-| A Architecture and integration | 25% | Parent build, public interfaces, application wiring, reviews |
-| B Rules engine | 15% | Movement, blocking, check, mate, stalemate and rule tests |
-| C AI search | 15% | Agent search, Expectiminimax, budgets and performance |
-| D Evaluation and experiments | 15% | Greedy evaluation, hidden-piece expectation and tournaments |
-| E JavaFX client | 15% | Board UI, local modes, replay and background AI execution |
-| F Protocol and server | 15% | JSON compatibility, rooms, clocks, records and Docker |
-
 ## Integration order
 
 1. Model and interfaces
