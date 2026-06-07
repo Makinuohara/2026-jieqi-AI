@@ -19,7 +19,9 @@ public final class JieqiApplication extends Application {
     @Override
     public void start(Stage stage) {
         stage.setTitle("揭棋竞技场");
-        stage.setScene(new Scene(home(stage), 980, 680));
+        stage.setScene(new Scene(home(stage), 1180, 760));
+        stage.setMinWidth(1050);
+        stage.setMinHeight(720);
         stage.show();
     }
 
@@ -38,7 +40,7 @@ public final class JieqiApplication extends Application {
                 "启动对弈服务器")) {
             Button button = new Button(mode);
             button.setMaxWidth(Double.MAX_VALUE);
-            button.setOnAction(event -> stage.getScene().setRoot(gameShell(stage, mode)));
+            button.setOnAction(event -> showMode(stage, mode));
             actions.getChildren().add(button);
         }
 
@@ -48,6 +50,15 @@ public final class JieqiApplication extends Application {
         root.setPadding(new Insets(36));
         applyStyles(root);
         return root;
+    }
+
+    private void showMode(Stage stage, String mode) {
+        if ("真人对人工智能".equals(mode)) {
+            stage.getScene().setRoot(new HumanVsAiView(
+                    () -> stage.getScene().setRoot(home(stage))));
+            return;
+        }
+        stage.getScene().setRoot(gameShell(stage, mode));
     }
 
     private BorderPane gameShell(Stage stage, String mode) {

@@ -12,9 +12,12 @@ import org.junit.jupiter.api.Test;
 class JieqiApplicationTextTest {
     @Test
     void userVisibleTextIsChinese() throws IOException {
-        String source = Files.readString(
-                Path.of("src/main/java/edu/bupt/jieqi/gui/JieqiApplication.java"),
-                StandardCharsets.UTF_8);
+        String source;
+        try (var files = Files.walk(Path.of("src/main/java/edu/bupt/jieqi/gui"))) {
+            source = files.filter(path -> path.toString().endsWith(".java"))
+                    .map(path -> read(path))
+                    .reduce("", String::concat);
+        }
 
         for (String expected : new String[] {
                 "揭棋竞技场",
@@ -28,7 +31,10 @@ class JieqiApplicationTextTest {
                 "暂停",
                 "单步",
                 "认输",
-                "返回"
+                "返回",
+                "重新开始",
+                "当前回合：",
+                "人工智能思考中"
         }) {
             assertTrue(source.contains(expected), () -> "缺少中文界面文字：" + expected);
         }
@@ -49,6 +55,14 @@ class JieqiApplicationTextTest {
                 "Mode:"
         }) {
             assertFalse(source.contains(forbidden), () -> "仍存在英文界面文字：" + forbidden);
+        }
+    }
+
+    private static String read(Path path) {
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new IllegalStateException(exception);
         }
     }
 }

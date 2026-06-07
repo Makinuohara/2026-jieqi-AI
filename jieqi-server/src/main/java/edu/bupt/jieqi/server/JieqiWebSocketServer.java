@@ -46,8 +46,7 @@ public final class JieqiWebSocketServer extends WebSocketServer {
     @Override
     public void onStart() {
         setConnectionLostTimeout(0);
-        System.out.println("Jieqi server listening at ws://0.0.0.0:" + getPort());
-        System.out.println("Framework mode: room and full game routing remain team F tasks.");
+        System.out.println("揭棋服务器已监听 ws://0.0.0.0:" + getPort());
+        System.out.println("当前为基础服务模式，房间匹配和完整联网对局仍待实现。");
     }
 }
-

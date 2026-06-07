@@ -17,5 +17,18 @@ class BoardTest {
         assertEquals(30, board.pieces().values().stream().filter(piece -> !piece.visible()).count());
         assertFalse(board.pieceAt(Position.parse("a0")).orElseThrow().visible());
     }
-}
 
+    @Test
+    void movingPieceCanRevealItAtDestination() {
+        Board board = Board.initial();
+        Position source = Position.parse("a0");
+        Position destination = Position.parse("a1");
+        Piece revealed = board.pieceAt(source).orElseThrow().revealAs(PieceType.CANNON);
+
+        Board moved = board.move(source, destination, revealed);
+
+        assertTrue(moved.pieceAt(source).isEmpty());
+        assertEquals(PieceType.CANNON,
+                moved.pieceAt(destination).orElseThrow().knownActualType().orElseThrow());
+    }
+}

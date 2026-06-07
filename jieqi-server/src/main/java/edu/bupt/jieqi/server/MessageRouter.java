@@ -21,7 +21,7 @@ public final class MessageRouter {
             case "Login", "register" -> Optional.of(loginResult(message));
             case "startMatch", "cancelMatch", "requestFirstHand", "Ready", "move", "Resign" ->
                     Optional.of(codec.toJson(new Messages.Error(
-                            100, "Framework route exists; room/game implementation is pending")));
+                            100, "消息入口已建立，房间和联网对局仍待实现")));
             default -> Optional.empty();
         };
     }
@@ -31,9 +31,8 @@ public final class MessageRouter {
         JsonObject response = new JsonObject();
         response.addProperty("messageType", "loginResult");
         response.addProperty("success", true);
-        response.addProperty("message", "temporary in-memory identity");
+        response.addProperty("message", "临时内存身份");
         response.addProperty("userId", userId);
         return codec.toJson(response);
     }
 }
-

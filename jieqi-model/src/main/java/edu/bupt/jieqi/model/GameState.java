@@ -9,12 +9,16 @@ public record GameState(
         int consecutiveCheckCount,
         int consecutiveChaseCount,
         long turnStartedAt,
-        GameStatus status) {
+        GameStatus status,
+        HiddenPiecePool redHiddenPool,
+        HiddenPiecePool blackHiddenPool) {
 
     public GameState {
         Objects.requireNonNull(board, "board");
         Objects.requireNonNull(currentTurn, "currentTurn");
         Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(redHiddenPool, "redHiddenPool");
+        Objects.requireNonNull(blackHiddenPool, "blackHiddenPool");
         if (noCaptureHalfMoves < 0 || consecutiveCheckCount < 0 || consecutiveChaseCount < 0) {
             throw new IllegalArgumentException("Counters cannot be negative");
         }
@@ -22,7 +26,11 @@ public record GameState(
 
     public static GameState initial() {
         return new GameState(Board.initial(), Color.RED, 0, 0, 0,
-                System.currentTimeMillis(), GameStatus.PLAYING);
+                System.currentTimeMillis(), GameStatus.PLAYING,
+                HiddenPiecePool.standard(), HiddenPiecePool.standard());
+    }
+
+    public HiddenPiecePool hiddenPool(Color color) {
+        return color == Color.RED ? redHiddenPool : blackHiddenPool;
     }
 }
-

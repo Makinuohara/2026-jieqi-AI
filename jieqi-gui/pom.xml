@@ -15,6 +15,11 @@
         </dependency>
         <dependency>
             <groupId>edu.bupt.jieqi</groupId>
+            <artifactId>jieqi-rules</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.bupt.jieqi</groupId>
             <artifactId>jieqi-protocol</artifactId>
             <version>${project.version}</version>
         </dependency>

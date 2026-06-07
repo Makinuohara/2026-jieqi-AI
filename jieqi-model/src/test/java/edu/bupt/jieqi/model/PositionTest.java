@@ -18,4 +18,3 @@ class PositionTest {
         assertThrows(IllegalArgumentException.class, () -> Position.parse("a10"));
     }
 }
-

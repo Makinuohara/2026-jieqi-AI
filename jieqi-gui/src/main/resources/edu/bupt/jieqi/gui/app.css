@@ -14,6 +14,12 @@
     -fx-text-fill: #665f55;
 }
 
+.section-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #7a2e2e;
+}
+
 .button {
     -fx-font-size: 14px;
     -fx-padding: 10 16;
@@ -22,9 +28,40 @@
 .square {
     -fx-min-width: 54px;
     -fx-min-height: 48px;
+    -fx-max-width: 54px;
+    -fx-max-height: 48px;
+    -fx-padding: 0;
+    -fx-text-overrun: clip;
+    -fx-font-size: 21px;
+    -fx-font-weight: bold;
     -fx-background-color: #dfbd80;
     -fx-border-color: #7f5d30;
     -fx-opacity: 1;
+}
+
+.red-piece {
+    -fx-text-fill: #a52020;
+}
+
+.black-piece {
+    -fx-text-fill: #202020;
+}
+
+.selected-square {
+    -fx-background-color: #f2d35e;
+    -fx-border-color: #b56a18;
+    -fx-border-width: 3px;
+}
+
+.legal-target {
+    -fx-background-color: #a9d18e;
+    -fx-border-color: #477b39;
+    -fx-border-width: 3px;
+}
+
+.chess-board {
+    -fx-border-color: #7f5d30;
+    -fx-border-width: 2px;
 }
 
 .panel {
@@ -32,4 +69,3 @@
     -fx-background-color: #fffaf0;
     -fx-border-color: #c8bda9;
 }
-
