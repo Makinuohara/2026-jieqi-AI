@@ -167,6 +167,94 @@ class StandardGameEngineTest {
         assertEquals(MoveError.ILLEGAL_PIECE_MOVEMENT, result.validation().error());
     }
 
+    @Test
+    void eightyHalfMovesWithoutCaptureIsDraw() {
+        GameState state = state(Color.RED, 79,
+                piece("a0", Color.RED, PieceType.ROOK),
+                piece("e0", Color.RED, PieceType.KING),
+                piece("e5", Color.RED, PieceType.PAWN),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        ApplyResult result = engine.apply(state, move("a0", "a1"));
+
+        assertEquals(80, result.state().noCaptureHalfMoves());
+        assertEquals(GameStatus.DRAW, result.state().status());
+    }
+
+    @Test
+    void captureResetsNoCaptureCounter() {
+        GameState state = state(Color.RED, 79,
+                piece("a0", Color.RED, PieceType.ROOK),
+                piece("a1", Color.BLACK, PieceType.PAWN),
+                piece("e0", Color.RED, PieceType.KING),
+                piece("e5", Color.RED, PieceType.PAWN),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        ApplyResult result = engine.apply(state, move("a0", "a1"));
+
+        assertEquals(0, result.state().noCaptureHalfMoves());
+        assertEquals(GameStatus.PLAYING, result.state().status());
+    }
+
+    @Test
+    void sideWithoutAnyLegalMoveLosesByStalemate() {
+        GameState state = state(Color.RED,
+                piece("a2", Color.RED, PieceType.ROOK),
+                piece("a0", Color.BLACK, PieceType.PAWN),
+                piece("b0", Color.BLACK, PieceType.PAWN),
+                piece("c0", Color.BLACK, PieceType.PAWN),
+                piece("d0", Color.BLACK, PieceType.PAWN),
+                piece("e0", Color.BLACK, PieceType.PAWN),
+                piece("f0", Color.BLACK, PieceType.PAWN),
+                piece("g0", Color.BLACK, PieceType.PAWN),
+                piece("h0", Color.BLACK, PieceType.PAWN),
+                piece("i0", Color.BLACK, PieceType.PAWN));
+
+        ApplyResult result = engine.apply(state, move("a2", "a3"));
+
+        assertEquals(GameStatus.RED_WIN, result.state().status());
+    }
+
+    @Test
+    void sideWithLegalMoveIsNotMistakenForStalemate() {
+        GameState state = state(Color.RED,
+                piece("b0", Color.RED, PieceType.ROOK),
+                piece("a1", Color.BLACK, PieceType.PAWN));
+
+        ApplyResult result = engine.apply(state, move("b0", "b1"));
+
+        assertEquals(GameStatus.PLAYING, result.state().status());
+    }
+
+    @Test
+    void detectsCheckButStillAllowsUnrelatedMove() {
+        GameState state = state(Color.RED,
+                piece("e5", Color.RED, PieceType.ROOK),
+                piece("a3", Color.RED, PieceType.PAWN),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        assertTrue(engine.isInCheck(state, Color.BLACK));
+        assertTrue(engine.apply(state, move("a3", "a4")).validation().valid());
+    }
+
+    @Test
+    void detectsKnightCannonAndPawnChecks() {
+        GameState knight = state(Color.RED,
+                piece("d7", Color.RED, PieceType.KNIGHT),
+                piece("e9", Color.BLACK, PieceType.KING));
+        GameState cannon = state(Color.RED,
+                piece("e5", Color.RED, PieceType.CANNON),
+                piece("e7", Color.RED, PieceType.PAWN),
+                piece("e9", Color.BLACK, PieceType.KING));
+        GameState pawn = state(Color.RED,
+                piece("e8", Color.RED, PieceType.PAWN),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        assertTrue(engine.isInCheck(knight, Color.BLACK));
+        assertTrue(engine.isInCheck(cannon, Color.BLACK));
+        assertTrue(engine.isInCheck(pawn, Color.BLACK));
+    }
+
     @SafeVarargs
     private static GameState state(Color turn, Map.Entry<Position, Piece>... entries) {
         Map<Position, Piece> pieces = new LinkedHashMap<>();
@@ -177,10 +265,25 @@ class StandardGameEngineTest {
     }
 
     private static GameState state(Color turn, Map<Position, Piece> pieces) {
+        return state(turn, 0, pieces);
+    }
+
+    @SafeVarargs
+    private static GameState state(
+            Color turn, int noCaptureHalfMoves, Map.Entry<Position, Piece>... entries) {
+        Map<Position, Piece> pieces = new LinkedHashMap<>();
+        for (Map.Entry<Position, Piece> entry : entries) {
+            pieces.put(entry.getKey(), entry.getValue());
+        }
+        return state(turn, noCaptureHalfMoves, pieces);
+    }
+
+    private static GameState state(
+            Color turn, int noCaptureHalfMoves, Map<Position, Piece> pieces) {
         return new GameState(
                 new Board(pieces),
                 turn,
-                0,
+                noCaptureHalfMoves,
                 0,
                 0,
                 0,

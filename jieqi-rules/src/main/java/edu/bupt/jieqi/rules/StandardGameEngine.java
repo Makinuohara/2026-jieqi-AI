@@ -16,6 +16,8 @@ import java.util.Objects;
 import java.util.random.RandomGenerator;
 
 public final class StandardGameEngine implements GameEngine {
+    private static final int DRAW_HALF_MOVE_LIMIT = 80;
+
     private final RandomGenerator random;
 
     public StandardGameEngine() {
@@ -51,6 +53,21 @@ public final class StandardGameEngine implements GameEngine {
     }
 
     @Override
+    public boolean isInCheck(GameState state, Color color) {
+        Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(color, "color");
+        Position king = findKing(state.board(), color);
+        if (king == null) {
+            return false;
+        }
+
+        return state.board().pieces().entrySet().stream()
+                .filter(entry -> entry.getValue().owner() == color.opposite())
+                .anyMatch(entry -> canAttack(
+                        state.board(), entry.getKey(), king, entry.getValue()));
+    }
+
+    @Override
     public ApplyResult apply(GameState state, Move move) {
         Objects.requireNonNull(state, "state");
         Objects.requireNonNull(move, "move");
@@ -79,18 +96,32 @@ public final class StandardGameEngine implements GameEngine {
         }
 
         Board nextBoard = state.board().move(move.source(), move.destination(), movedPiece);
-        GameStatus nextStatus = winnerAfterCapture(source.owner(), destination);
+        int nextNoCaptureHalfMoves =
+                destination == null ? state.noCaptureHalfMoves() + 1 : 0;
         Color nextTurn = state.currentTurn().opposite();
+        GameStatus nextStatus = winnerAfterCapture(source.owner(), destination);
+        if (nextStatus == GameStatus.PLAYING
+                && nextNoCaptureHalfMoves >= DRAW_HALF_MOVE_LIMIT) {
+            nextStatus = GameStatus.DRAW;
+        }
+
         GameState next = new GameState(
                 nextBoard,
                 nextTurn,
-                destination == null ? state.noCaptureHalfMoves() + 1 : 0,
+                nextNoCaptureHalfMoves,
                 0,
                 0,
                 System.currentTimeMillis(),
                 nextStatus,
                 redPool,
                 blackPool);
+
+        if (nextStatus == GameStatus.PLAYING && legalMoves(next).isEmpty()) {
+            nextStatus = source.owner() == Color.RED
+                    ? GameStatus.RED_WIN
+                    : GameStatus.BLACK_WIN;
+            next = withStatus(next, nextStatus);
+        }
 
         if (nextStatus == GameStatus.PLAYING) {
             events.add(new GameEvent.TurnChanged(nextTurn));
@@ -142,9 +173,24 @@ public final class StandardGameEngine implements GameEngine {
             return false;
         }
 
+        if (!canAttack(board, source, destination, piece)) {
+            return false;
+        }
+
+        Board moved = board.move(source, destination, piece);
+        return !kingsFace(moved);
+    }
+
+    private boolean canAttack(
+            Board board, Position source, Position destination, Piece piece) {
+        Piece target = board.pieceAt(destination).orElse(null);
+        if (target != null && target.owner() == piece.owner()) {
+            return false;
+        }
+
         int dx = destination.file() - source.file();
         int dy = destination.rank() - source.rank();
-        boolean movementValid = switch (piece.movementType()) {
+        return switch (piece.movementType()) {
             case ROOK -> isStraight(dx, dy) && countBetween(board, source, destination) == 0;
             case KNIGHT -> isKnight(board, source, dx, dy);
             case CANNON -> isCannon(board, source, destination, target);
@@ -153,12 +199,6 @@ public final class StandardGameEngine implements GameEngine {
             case GUARD -> Math.abs(dx) == 1 && Math.abs(dy) == 1;
             case BISHOP -> isBishop(board, source, dx, dy);
         };
-        if (!movementValid) {
-            return false;
-        }
-
-        Board moved = board.move(source, destination, piece);
-        return !kingsFace(moved);
     }
 
     private boolean isKnight(Board board, Position source, int dx, int dy) {
@@ -272,5 +312,18 @@ public final class StandardGameEngine implements GameEngine {
 
     private boolean isStraight(int dx, int dy) {
         return (dx == 0) != (dy == 0);
+    }
+
+    private GameState withStatus(GameState state, GameStatus status) {
+        return new GameState(
+                state.board(),
+                state.currentTurn(),
+                state.noCaptureHalfMoves(),
+                state.consecutiveCheckCount(),
+                state.consecutiveChaseCount(),
+                state.turnStartedAt(),
+                status,
+                state.redHiddenPool(),
+                state.blackHiddenPool());
     }
 }
