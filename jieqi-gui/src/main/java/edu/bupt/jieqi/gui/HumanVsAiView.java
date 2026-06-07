@@ -237,7 +237,7 @@ final class HumanVsAiView extends BorderPane {
         turnLabel.setText(aiThinking
                 ? "当前回合：人工智能思考中"
                 : "当前回合：" + colorText(game.state().currentTurn()));
-        statusLabel.setText(statusText(game.state().status()));
+        statusLabel.setText(statusText());
         moveList.getItems().setAll(game.moveRecords());
         if (!moveList.getItems().isEmpty()) {
             moveList.scrollTo(moveList.getItems().size() - 1);
@@ -248,7 +248,13 @@ final class HumanVsAiView extends BorderPane {
         return color == Color.RED ? "红方" : "黑方";
     }
 
-    private String statusText(GameStatus status) {
+    private String statusText() {
+        GameStatus status = game.state().status();
+        if (status == GameStatus.PLAYING && game.isCurrentPlayerInCheck()) {
+            return game.state().currentTurn() == Color.RED
+                    ? "对局状态：红方被将军"
+                    : "对局状态：黑方被将军";
+        }
         return switch (status) {
             case WAITING -> "对局状态：等待开始";
             case PLAYING -> "对局状态：进行中";

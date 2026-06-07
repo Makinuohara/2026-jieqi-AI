@@ -34,7 +34,9 @@ class JieqiApplicationTextTest {
                 "返回",
                 "重新开始",
                 "当前回合：",
-                "人工智能思考中"
+                "人工智能思考中",
+                "红方被将军",
+                "黑方被将军"
         }) {
             assertTrue(source.contains(expected), () -> "缺少中文界面文字：" + expected);
         }

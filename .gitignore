@@ -9,3 +9,4 @@ logs/
 records/
 *.log
 .superpowers/
+.claude/settings.local.json
