@@ -95,9 +95,9 @@ public final class LocalHumanVsAiGame {
         return List.copyOf(moveRecords);
     }
 
-    public boolean isCurrentPlayerInCheck() {
+    public boolean isInCheck(Color color) {
         return state.status() == GameStatus.PLAYING
-                && engine.isInCheck(state, state.currentTurn());
+                && engine.isInCheck(state, color);
     }
 
     private ApplyResult applyAndRecord(Move move, String side) {

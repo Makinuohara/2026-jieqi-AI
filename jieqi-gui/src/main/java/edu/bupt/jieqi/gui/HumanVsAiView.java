@@ -249,11 +249,24 @@ final class HumanVsAiView extends BorderPane {
     }
 
     private String statusText() {
-        GameStatus status = game.state().status();
-        if (status == GameStatus.PLAYING && game.isCurrentPlayerInCheck()) {
-            return game.state().currentTurn() == Color.RED
-                    ? "对局状态：红方被将军"
-                    : "对局状态：黑方被将军";
+        return statusText(
+                game.state().status(),
+                game.isInCheck(Color.RED),
+                game.isInCheck(Color.BLACK));
+    }
+
+    static String statusText(
+            GameStatus status,
+            boolean redInCheck,
+            boolean blackInCheck) {
+        if (status == GameStatus.PLAYING && redInCheck && blackInCheck) {
+            return "对局状态：双方均被将军";
+        }
+        if (status == GameStatus.PLAYING && redInCheck) {
+            return "对局状态：红方被将军";
+        }
+        if (status == GameStatus.PLAYING && blackInCheck) {
+            return "对局状态：黑方被将军";
         }
         return switch (status) {
             case WAITING -> "对局状态：等待开始";
