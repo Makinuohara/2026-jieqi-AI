@@ -8,6 +8,8 @@ public record GameState(
         int noCaptureHalfMoves,
         int consecutiveCheckCount,
         int consecutiveChaseCount,
+        Color consecutiveCheckOwner,
+        Color consecutiveChaseOwner,
         long turnStartedAt,
         GameStatus status,
         HiddenPiecePool redHiddenPool,
@@ -24,8 +26,32 @@ public record GameState(
         }
     }
 
+    public GameState(
+            Board board,
+            Color currentTurn,
+            int noCaptureHalfMoves,
+            int consecutiveCheckCount,
+            int consecutiveChaseCount,
+            long turnStartedAt,
+            GameStatus status,
+            HiddenPiecePool redHiddenPool,
+            HiddenPiecePool blackHiddenPool) {
+        this(
+                board,
+                currentTurn,
+                noCaptureHalfMoves,
+                consecutiveCheckCount,
+                consecutiveChaseCount,
+                null,
+                null,
+                turnStartedAt,
+                status,
+                redHiddenPool,
+                blackHiddenPool);
+    }
+
     public static GameState initial() {
-        return new GameState(Board.initial(), Color.RED, 0, 0, 0,
+        return new GameState(Board.initial(), Color.RED, 0, 0, 0, null, null,
                 System.currentTimeMillis(), GameStatus.PLAYING,
                 HiddenPiecePool.standard(), HiddenPiecePool.standard());
     }

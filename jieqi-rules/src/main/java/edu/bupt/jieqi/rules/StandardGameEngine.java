@@ -17,6 +17,7 @@ import java.util.random.RandomGenerator;
 
 public final class StandardGameEngine implements GameEngine {
     private static final int DRAW_HALF_MOVE_LIMIT = 80;
+    private static final int REPETITION_LIMIT = 6;
 
     private final RandomGenerator random;
 
@@ -67,6 +68,17 @@ public final class StandardGameEngine implements GameEngine {
                         state.board(), entry.getKey(), king, entry.getValue()));
     }
 
+    private boolean isInCheck(Board board, Color color) {
+        Position king = findKing(board, color);
+        if (king == null) {
+            return false;
+        }
+
+        return board.pieces().entrySet().stream()
+                .filter(entry -> entry.getValue().owner() == color.opposite())
+                .anyMatch(entry -> canAttack(board, entry.getKey(), king, entry.getValue()));
+    }
+
     @Override
     public ApplyResult apply(GameState state, Move move) {
         Objects.requireNonNull(state, "state");
@@ -100,6 +112,35 @@ public final class StandardGameEngine implements GameEngine {
                 destination == null ? state.noCaptureHalfMoves() + 1 : 0;
         Color nextTurn = state.currentTurn().opposite();
         GameStatus nextStatus = winnerAfterCapture(source.owner(), destination);
+        boolean givesCheck = isInCheck(nextBoard, source.owner().opposite());
+        boolean givesChase = !givesCheck && attacksNonKingEnemy(
+                nextBoard, move.destination(), movedPiece);
+        Repetition check = updateRepetition(
+                state.consecutiveCheckOwner(),
+                state.consecutiveCheckCount(),
+                source.owner(),
+                givesCheck);
+        Repetition chase = updateRepetition(
+                state.consecutiveChaseOwner(),
+                state.consecutiveChaseCount(),
+                source.owner(),
+                givesChase);
+        if (nextStatus == GameStatus.PLAYING
+                && check.owner() == source.owner()
+                && check.count() >= REPETITION_LIMIT) {
+            nextStatus = source.owner() == Color.RED
+                    ? GameStatus.BLACK_WIN
+                    : GameStatus.RED_WIN;
+        }
+        if (nextStatus == GameStatus.PLAYING
+                && chase.owner() == source.owner()
+                && chase.count() >= REPETITION_LIMIT) {
+            nextStatus = movedPiece.movementType() == PieceType.PAWN
+                    ? GameStatus.DRAW
+                    : source.owner() == Color.RED
+                            ? GameStatus.BLACK_WIN
+                            : GameStatus.RED_WIN;
+        }
         if (nextStatus == GameStatus.PLAYING
                 && nextNoCaptureHalfMoves >= DRAW_HALF_MOVE_LIMIT) {
             nextStatus = GameStatus.DRAW;
@@ -109,8 +150,10 @@ public final class StandardGameEngine implements GameEngine {
                 nextBoard,
                 nextTurn,
                 nextNoCaptureHalfMoves,
-                0,
-                0,
+                check.count(),
+                chase.count(),
+                check.owner(),
+                chase.owner(),
                 System.currentTimeMillis(),
                 nextStatus,
                 redPool,
@@ -310,6 +353,25 @@ public final class StandardGameEngine implements GameEngine {
         return mover == Color.RED ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
     }
 
+    private boolean attacksNonKingEnemy(Board board, Position source, Piece piece) {
+        return board.pieces().entrySet().stream()
+                .filter(entry -> entry.getValue().owner() == piece.owner().opposite())
+                .filter(entry -> entry.getValue().movementType() != PieceType.KING)
+                .anyMatch(entry -> canAttack(board, source, entry.getKey(), piece));
+    }
+
+    private Repetition updateRepetition(
+            Color previousOwner, int previousCount, Color mover, boolean active) {
+        if (active) {
+            int count = previousOwner == mover ? previousCount + 1 : 1;
+            return new Repetition(mover, count);
+        }
+        if (previousOwner == mover) {
+            return new Repetition(null, 0);
+        }
+        return new Repetition(previousOwner, previousCount);
+    }
+
     private boolean isStraight(int dx, int dy) {
         return (dx == 0) != (dy == 0);
     }
@@ -321,9 +383,14 @@ public final class StandardGameEngine implements GameEngine {
                 state.noCaptureHalfMoves(),
                 state.consecutiveCheckCount(),
                 state.consecutiveChaseCount(),
+                state.consecutiveCheckOwner(),
+                state.consecutiveChaseOwner(),
                 state.turnStartedAt(),
                 status,
                 state.redHiddenPool(),
                 state.blackHiddenPool());
+    }
+
+    private record Repetition(Color owner, int count) {
     }
 }

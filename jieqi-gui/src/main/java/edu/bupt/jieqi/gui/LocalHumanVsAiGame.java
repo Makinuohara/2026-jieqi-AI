@@ -128,6 +128,8 @@ public final class LocalHumanVsAiGame {
                 current.noCaptureHalfMoves(),
                 current.consecutiveCheckCount(),
                 current.consecutiveChaseCount(),
+                current.consecutiveCheckOwner(),
+                current.consecutiveChaseOwner(),
                 current.turnStartedAt(),
                 status,
                 current.redHiddenPool(),

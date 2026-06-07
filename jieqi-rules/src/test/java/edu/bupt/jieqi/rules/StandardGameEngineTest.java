@@ -2,6 +2,7 @@ package edu.bupt.jieqi.rules;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.bupt.jieqi.model.Board;
@@ -255,6 +256,83 @@ class StandardGameEngineTest {
         assertTrue(engine.isInCheck(pawn, Color.BLACK));
     }
 
+    @Test
+    void sixthConsecutiveCheckLosesForChecker() {
+        GameState state = state(Color.RED, 0, 5, 0, Color.RED, null,
+                piece("a8", Color.RED, PieceType.ROOK),
+                piece("e0", Color.RED, PieceType.KING),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        ApplyResult result = engine.apply(state, move("a8", "e8"));
+
+        assertTrue(result.validation().valid());
+        assertEquals(6, result.state().consecutiveCheckCount());
+        assertEquals(Color.RED, result.state().consecutiveCheckOwner());
+        assertEquals(GameStatus.BLACK_WIN, result.state().status());
+    }
+
+    @Test
+    void nonCheckingMoveBySameSideBreaksCheckSequence() {
+        GameState state = state(Color.RED, 0, 5, 0, Color.RED, null,
+                piece("a0", Color.RED, PieceType.ROOK),
+                piece("d0", Color.RED, PieceType.KING),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        ApplyResult result = engine.apply(state, move("a0", "a1"));
+
+        assertTrue(result.validation().valid());
+        assertEquals(0, result.state().consecutiveCheckCount());
+        assertNull(result.state().consecutiveCheckOwner());
+        assertEquals(GameStatus.PLAYING, result.state().status());
+    }
+
+    @Test
+    void sixthConsecutiveChaseByNonPawnLosesForChaser() {
+        GameState state = state(Color.RED, 0, 0, 5, null, Color.RED,
+                piece("a0", Color.RED, PieceType.ROOK),
+                piece("d0", Color.RED, PieceType.KING),
+                piece("a5", Color.BLACK, PieceType.KNIGHT),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        ApplyResult result = engine.apply(state, move("a0", "a1"));
+
+        assertTrue(result.validation().valid());
+        assertEquals(6, result.state().consecutiveChaseCount());
+        assertEquals(Color.RED, result.state().consecutiveChaseOwner());
+        assertEquals(GameStatus.BLACK_WIN, result.state().status());
+    }
+
+    @Test
+    void sixthConsecutivePawnChaseDraws() {
+        GameState state = state(Color.RED, 0, 0, 5, null, Color.RED,
+                piece("a5", Color.RED, PieceType.PAWN),
+                piece("d0", Color.RED, PieceType.KING),
+                piece("b6", Color.BLACK, PieceType.ROOK),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        ApplyResult result = engine.apply(state, move("a5", "a6"));
+
+        assertTrue(result.validation().valid());
+        assertEquals(6, result.state().consecutiveChaseCount());
+        assertEquals(Color.RED, result.state().consecutiveChaseOwner());
+        assertEquals(GameStatus.DRAW, result.state().status());
+    }
+
+    @Test
+    void pawnLongCheckStillLosesForChecker() {
+        GameState state = state(Color.RED, 0, 5, 5, Color.RED, Color.RED,
+                piece("e7", Color.RED, PieceType.PAWN),
+                piece("d0", Color.RED, PieceType.KING),
+                piece("f8", Color.BLACK, PieceType.ROOK),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        ApplyResult result = engine.apply(state, move("e7", "e8"));
+
+        assertTrue(result.validation().valid());
+        assertEquals(6, result.state().consecutiveCheckCount());
+        assertEquals(GameStatus.BLACK_WIN, result.state().status());
+    }
+
     @SafeVarargs
     private static GameState state(Color turn, Map.Entry<Position, Piece>... entries) {
         Map<Position, Piece> pieces = new LinkedHashMap<>();
@@ -276,6 +354,33 @@ class StandardGameEngineTest {
             pieces.put(entry.getKey(), entry.getValue());
         }
         return state(turn, noCaptureHalfMoves, pieces);
+    }
+
+    @SafeVarargs
+    private static GameState state(
+            Color turn,
+            int noCaptureHalfMoves,
+            int consecutiveCheckCount,
+            int consecutiveChaseCount,
+            Color consecutiveCheckOwner,
+            Color consecutiveChaseOwner,
+            Map.Entry<Position, Piece>... entries) {
+        Map<Position, Piece> pieces = new LinkedHashMap<>();
+        for (Map.Entry<Position, Piece> entry : entries) {
+            pieces.put(entry.getKey(), entry.getValue());
+        }
+        return new GameState(
+                new Board(pieces),
+                turn,
+                noCaptureHalfMoves,
+                consecutiveCheckCount,
+                consecutiveChaseCount,
+                consecutiveCheckOwner,
+                consecutiveChaseOwner,
+                0,
+                GameStatus.PLAYING,
+                HiddenPiecePool.standard(),
+                HiddenPiecePool.standard());
     }
 
     private static GameState state(
