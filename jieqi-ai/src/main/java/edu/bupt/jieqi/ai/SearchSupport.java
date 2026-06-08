@@ -83,6 +83,7 @@ final class SearchSupport {
             int remembered = Math.max(0, entry.getValue());
             int visible = visibleCount(board, owner, entry.getKey());
             int capturedOrMovedOutOfSight = Math.max(0, remembered - visible);
+            // 已经公开过但当前不可见的棋子，通常是被吃掉了，不能再算进暗子池。
             counts.computeIfPresent(entry.getKey(),
                     (ignored, count) -> Math.max(0, count - capturedOrMovedOutOfSight));
         }
@@ -145,8 +146,10 @@ final class SearchSupport {
         if (king == null || state.status() != GameStatus.PLAYING) {
             return false;
         }
-        return engine.legalMoves(withTurn(state, attacker)).stream()
-                .anyMatch(move -> move.destination().equals(king));
+        // 热路径：直接判断棋子是否攻击帅位，比生成一整张合法走法表更快。
+        return state.board().pieces().entrySet().stream()
+                .filter(entry -> entry.getValue().owner() == attacker)
+                .anyMatch(entry -> canAttack(state.board(), entry.getKey(), king, entry.getValue()));
     }
 
     static List<Move> safetyFilteredMoves(
@@ -154,7 +157,20 @@ final class SearchSupport {
             List<Move> legalMoves,
             Color mover,
             GameEngine engine) {
+        // 严格版本会枚举暗子翻开后的所有可能结果，适合测试和高风险局面。
         List<Move> safeMoves = safeMoves(state, legalMoves, mover, engine);
+        return safeMoves.isEmpty() ? legalMoves : safeMoves;
+    }
+
+    static List<Move> fastSafetyFilteredMoves(
+            GameState state,
+            List<Move> legalMoves,
+            Color mover,
+            GameEngine engine) {
+        // 交互对局使用快速版本：不展开暗子概率，只检查走完后是否直接送将帅。
+        List<Move> safeMoves = legalMoves.stream()
+                .filter(move -> isKingSafeAfterMoveFast(state, move, mover, engine))
+                .collect(Collectors.toList());
         return safeMoves.isEmpty() ? legalMoves : safeMoves;
     }
 
@@ -173,6 +189,7 @@ final class SearchSupport {
             Move move,
             Color kingOwner,
             GameEngine engine) {
+        // 暗子移动会随机揭示实际类型；任一揭示结果会送将帅，都视为不安全。
         List<WeightedState> outcomes = outcomesAfter(state, move, engine);
         if (outcomes.isEmpty()) {
             return false;
@@ -189,6 +206,49 @@ final class SearchSupport {
         return true;
     }
 
+    static boolean isKingSafeAfterMoveFast(
+            GameState state,
+            Move move,
+            Color kingOwner,
+            GameEngine engine) {
+        // 快速检查只关心棋盘占位变化，避免在每个候选步上展开所有翻子概率。
+        GameState next = approximateStateAfterMove(state, move);
+        if (next == null || next.status() != GameStatus.PLAYING) {
+            return next != null;
+        }
+        return !hasImmediateKingCapture(next, kingOwner.opposite(), kingOwner, engine);
+    }
+
+    static GameState approximateStateAfterMove(GameState state, Move move) {
+        Piece source = state.board().pieceAt(move.source()).orElse(null);
+        if (source == null || source.owner() != state.currentTurn()) {
+            return null;
+        }
+        Piece target = state.board().pieceAt(move.destination()).orElse(null);
+        if (target != null && target.owner() == source.owner()) {
+            return null;
+        }
+
+        Board nextBoard = state.board().move(move.source(), move.destination(), source);
+        GameStatus status = winnerAfterCapture(source.owner(), target);
+        return new GameState(
+                nextBoard,
+                state.currentTurn().opposite(),
+                target == null ? state.noCaptureHalfMoves() + 1 : 0,
+                state.redConsecutiveCheckCount(),
+                state.redConsecutiveChaseCount(),
+                state.redChasedPosition(),
+                state.redChasedPieceType(),
+                state.blackConsecutiveCheckCount(),
+                state.blackConsecutiveChaseCount(),
+                state.blackChasedPosition(),
+                state.blackChasedPieceType(),
+                state.turnStartedAt(),
+                status,
+                state.redHiddenPool(),
+                state.blackHiddenPool());
+    }
+
     static List<WeightedState> outcomesAfter(GameState state, Move move, GameEngine engine) {
         Piece source = state.board().pieceAt(move.source()).orElse(null);
         if (source == null) {
@@ -203,6 +263,7 @@ final class SearchSupport {
             return singleOutcome(engine, state, move);
         }
 
+        // 每种可能翻出的棋子类型都是一个 chance node 分支，权重来自剩余暗子池。
         java.util.ArrayList<WeightedState> outcomes = new java.util.ArrayList<>();
         for (PieceType type : PieceType.values()) {
             int count = pool.count(type);
@@ -268,6 +329,7 @@ final class SearchSupport {
 
     static String transpositionKey(GameState state, Color perspective) {
         StringBuilder key = new StringBuilder(256);
+        // 局面缓存键必须包含轮到谁、公开棋盘和剩余暗子池，否则不同概率局面会混淆。
         key.append("p=").append(perspective)
                 .append(";t=").append(state.currentTurn())
                 .append(";s=").append(state.status())
@@ -305,6 +367,109 @@ final class SearchSupport {
             key.append(type.ordinal()).append(':').append(pool.count(type)).append(',');
         }
         return key.toString();
+    }
+
+    private static GameStatus winnerAfterCapture(Color mover, Piece captured) {
+        if (captured == null
+                || !captured.visible()
+                || captured.actualType() != PieceType.KING) {
+            return GameStatus.PLAYING;
+        }
+        return mover == Color.RED ? GameStatus.RED_WIN : GameStatus.BLACK_WIN;
+    }
+
+    private static boolean canAttack(
+            Board board, Position source, Position destination, Piece piece) {
+        Piece target = board.pieceAt(destination).orElse(null);
+        if (target != null && target.owner() == piece.owner()) {
+            return false;
+        }
+
+        int dx = destination.file() - source.file();
+        int dy = destination.rank() - source.rank();
+        // 复制规则层的基础攻击判定，供 AI 高频安全检查使用。
+        return switch (piece.movementType()) {
+            case ROOK -> isStraight(dx, dy) && countBetween(board, source, destination) == 0;
+            case KNIGHT -> isKnight(board, source, dx, dy);
+            case CANNON -> isCannon(board, source, destination, target);
+            case PAWN -> isPawn(piece.owner(), source, dx, dy);
+            case KING -> isKing(piece.owner(), destination, dx, dy);
+            case GUARD -> Math.abs(dx) == 1 && Math.abs(dy) == 1;
+            case BISHOP -> isBishop(board, source, dx, dy);
+        };
+    }
+
+    private static boolean isKnight(Board board, Position source, int dx, int dy) {
+        if (!((Math.abs(dx) == 1 && Math.abs(dy) == 2)
+                || (Math.abs(dx) == 2 && Math.abs(dy) == 1))) {
+            return false;
+        }
+        Position leg = Math.abs(dx) == 2
+                ? new Position(source.file() + Integer.signum(dx), source.rank())
+                : new Position(source.file(), source.rank() + Integer.signum(dy));
+        return board.pieceAt(leg).isEmpty();
+    }
+
+    private static boolean isCannon(
+            Board board, Position source, Position destination, Piece target) {
+        int dx = destination.file() - source.file();
+        int dy = destination.rank() - source.rank();
+        if (!isStraight(dx, dy)) {
+            return false;
+        }
+        int between = countBetween(board, source, destination);
+        return target == null ? between == 0 : between == 1;
+    }
+
+    private static boolean isPawn(Color owner, Position source, int dx, int dy) {
+        int forward = owner == Color.RED ? 1 : -1;
+        if (dx == 0 && dy == forward) {
+            return true;
+        }
+        boolean crossedRiver = owner == Color.RED ? source.rank() >= 5 : source.rank() <= 4;
+        return crossedRiver && Math.abs(dx) == 1 && dy == 0;
+    }
+
+    private static boolean isKing(Color owner, Position destination, int dx, int dy) {
+        if (Math.abs(dx) + Math.abs(dy) != 1) {
+            return false;
+        }
+        int minimumRank = owner == Color.RED ? 0 : 7;
+        int maximumRank = owner == Color.RED ? 2 : 9;
+        return destination.file() >= 3
+                && destination.file() <= 5
+                && destination.rank() >= minimumRank
+                && destination.rank() <= maximumRank;
+    }
+
+    private static boolean isBishop(Board board, Position source, int dx, int dy) {
+        if (Math.abs(dx) != 2 || Math.abs(dy) != 2) {
+            return false;
+        }
+        Position eye = new Position(
+                source.file() + dx / 2,
+                source.rank() + dy / 2);
+        return board.pieceAt(eye).isEmpty();
+    }
+
+    private static int countBetween(Board board, Position source, Position destination) {
+        int stepFile = Integer.signum(destination.file() - source.file());
+        int stepRank = Integer.signum(destination.rank() - source.rank());
+        int file = source.file() + stepFile;
+        int rank = source.rank() + stepRank;
+        int count = 0;
+        while (file != destination.file() || rank != destination.rank()) {
+            if (board.pieceAt(new Position(file, rank)).isPresent()) {
+                count++;
+            }
+            file += stepFile;
+            rank += stepRank;
+        }
+        return count;
+    }
+
+    private static boolean isStraight(int dx, int dy) {
+        return (dx == 0) != (dy == 0);
     }
 
     static record WeightedState(GameState state, double probability) {

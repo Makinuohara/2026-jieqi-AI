@@ -22,8 +22,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class LocalHumanVsAiGame {
+    // 真人对局优先保证响应速度；搜索器会在被将或残局时自行临时加深。
     private static final SearchBudget AI_BUDGET =
-            new SearchBudget(Duration.ofSeconds(5), 3);
+            new SearchBudget(Duration.ofMillis(700), 2);
 
     private final GameEngine engine;
     private final Agent ai;

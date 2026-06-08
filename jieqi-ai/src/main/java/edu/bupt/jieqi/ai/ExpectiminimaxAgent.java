@@ -24,6 +24,7 @@ public final class ExpectiminimaxAgent implements Agent {
     private final Evaluator evaluator;
     private final GameEngine engine;
     private final GreedyAgent fallback;
+    // 只记录对局中已经公开见过的明子，不记录暗子的真实身份，避免 AI 偷看信息。
     private final Map<Color, EnumMap<PieceType, Integer>> revealedMemory = new EnumMap<>(Color.class);
     private String previousObservationKey;
 
@@ -48,6 +49,7 @@ public final class ExpectiminimaxAgent implements Agent {
 
         rememberRevealedPieces(view);
         Instant deadline = Instant.now().plus(budget.timeLimit());
+        // PlayerView 只有公开棋盘；这里用可见信息和历史记忆重建搜索用的概率局面。
         GameState state = SearchSupport.stateFrom(
                 view,
                 SearchSupport.inferHiddenPool(view.board(), Color.RED, revealedMemory.get(Color.RED)),
@@ -57,9 +59,10 @@ public final class ExpectiminimaxAgent implements Agent {
         int maxDepth = adjustedDepth(view, budget);
         Move bestMove = null;
         double bestScore = -Double.MAX_VALUE;
+        // 先过滤掉会直接送将帅的走法，再按战术价值排序，提升 Alpha-Beta 剪枝效率。
         List<Move> candidates = orderedMoves(
                 state,
-                SearchSupport.safetyFilteredMoves(state, view.legalMoves(), perspective, engine),
+                SearchSupport.fastSafetyFilteredMoves(state, view.legalMoves(), perspective, engine),
                 perspective);
 
         for (Move move : candidates) {
@@ -105,13 +108,14 @@ public final class ExpectiminimaxAgent implements Agent {
             return evaluator.evaluate(SearchSupport.viewFrom(state, perspective, engine));
         }
 
+        // 本次思考内的置换表，缓存已经完整搜索过的局面，减少重复子树计算。
         String key = SearchSupport.transpositionKey(state, perspective);
         CacheEntry cached = context.cache().get(key);
         if (cached != null && cached.depth() >= depth) {
             return cached.score();
         }
 
-        List<Move> legalMoves = SearchSupport.safetyFilteredMoves(
+        List<Move> legalMoves = SearchSupport.fastSafetyFilteredMoves(
                 state, engine.legalMoves(state), state.currentTurn(), engine);
         if (legalMoves.isEmpty()) {
             return state.currentTurn() == perspective
@@ -174,6 +178,7 @@ public final class ExpectiminimaxAgent implements Agent {
 
         double expected = 0.0;
         boolean chanceNode = outcomes.size() > 1;
+        // 翻暗子是概率节点，不能用父节点窗口随意剪枝，否则期望值会被算偏。
         double childAlpha = chanceNode ? -SearchSupport.WIN_SCORE : alpha;
         double childBeta = chanceNode ? SearchSupport.WIN_SCORE : beta;
         for (SearchSupport.WeightedState outcome : outcomes) {
@@ -206,6 +211,7 @@ public final class ExpectiminimaxAgent implements Agent {
             return standPat;
         }
 
+        // 安静搜索只在战术局面继续展开，避免叶子节点刚好停在吃子/将军的混乱状态。
         boolean maximizing = state.currentTurn() == perspective;
         if (maximizing) {
             alpha = Math.max(alpha, standPat);
@@ -218,7 +224,8 @@ public final class ExpectiminimaxAgent implements Agent {
 
         boolean sideToMoveInCheck = SearchSupport.hasImmediateKingCapture(
                 state, state.currentTurn().opposite(), state.currentTurn(), engine);
-        List<Move> safeMoves = SearchSupport.safetyFilteredMoves(
+        // 被将军时必须展开全部安全应手；平稳局面只展开吃子和将军等战术走法。
+        List<Move> safeMoves = SearchSupport.fastSafetyFilteredMoves(
                 state, engine.legalMoves(state), state.currentTurn(), engine);
         List<Move> tacticalMoves = sideToMoveInCheck
                 ? safeMoves
@@ -267,6 +274,7 @@ public final class ExpectiminimaxAgent implements Agent {
 
         double expected = 0.0;
         boolean chanceNode = outcomes.size() > 1;
+        // 安静搜索里的暗子概率也要完整求期望，保持和主搜索同样的信息规则。
         double childAlpha = chanceNode ? -SearchSupport.WIN_SCORE : alpha;
         double childBeta = chanceNode ? SearchSupport.WIN_SCORE : beta;
         for (SearchSupport.WeightedState outcome : outcomes) {
@@ -332,26 +340,27 @@ public final class ExpectiminimaxAgent implements Agent {
             }
         }
 
-        for (SearchSupport.WeightedState outcome : SearchSupport.outcomesAfter(state, move, engine)) {
-            if (outcome.state().status() != state.status()) {
-                double terminal = SearchSupport.terminalValue(outcome.state().status(), perspective);
+        GameState outcome = SearchSupport.approximateStateAfterMove(state, move);
+        if (outcome != null) {
+            if (outcome.status() != state.status()) {
+                double terminal = SearchSupport.terminalValue(outcome.status(), perspective);
                 if (!Double.isNaN(terminal)) {
-                    score += terminal * outcome.probability();
+                    score += terminal;
                 }
             }
             if (SearchSupport.hasImmediateKingCapture(
-                    outcome.state(),
+                    outcome,
                     state.currentTurn(),
                     state.currentTurn().opposite(),
                     engine)) {
-                score += 50_000.0 * outcome.probability();
+                score += 50_000.0;
             }
             if (SearchSupport.hasImmediateKingCapture(
-                    outcome.state(),
+                    outcome,
                     perspective.opposite(),
                     perspective,
                     engine)) {
-                score -= 80_000.0 * outcome.probability();
+                score -= 80_000.0;
             }
         }
         return score;
@@ -362,8 +371,14 @@ public final class ExpectiminimaxAgent implements Agent {
         long visiblePieces = view.board().pieces().values().stream()
                 .filter(Piece::visible)
                 .count();
-        if (visiblePieces <= 8 && depth < 4) {
-            return 4;
+        // 平时保持快速响应；只有被将、能立即取胜或残局时才临时加深搜索。
+        boolean underImmediateThreat = SearchSupport.canCaptureVisibleKing(
+                view, view.perspective().opposite(), view.perspective());
+        boolean canWinImmediately = SearchSupport.canCaptureVisibleKing(
+                view, view.perspective(), view.perspective().opposite());
+        boolean endgame = view.board().pieces().size() <= 12 || visiblePieces >= 18;
+        if ((underImmediateThreat || canWinImmediately || endgame) && depth < 3) {
+            return 3;
         }
         return depth;
     }
@@ -381,6 +396,7 @@ public final class ExpectiminimaxAgent implements Agent {
         for (Color color : Color.values()) {
             currentVisible.put(color, new EnumMap<>(PieceType.class));
         }
+        // 记住曾经公开出现过的非将帅棋子，被吃掉后也要从后续暗子概率池中扣除。
         for (Piece piece : view.board().pieces().values()) {
             if (!piece.visible() || piece.actualType() == PieceType.KING) {
                 continue;
