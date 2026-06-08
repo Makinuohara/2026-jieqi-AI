@@ -9,9 +9,11 @@ public record GameState(
         int redConsecutiveCheckCount,
         int redConsecutiveChaseCount,
         Position redChasedPosition,
+        PieceType redChasedPieceType,
         int blackConsecutiveCheckCount,
         int blackConsecutiveChaseCount,
         Position blackChasedPosition,
+        PieceType blackChasedPieceType,
         long turnStartedAt,
         GameStatus status,
         HiddenPiecePool redHiddenPool,
@@ -32,8 +34,8 @@ public record GameState(
 
     public static GameState initial() {
         return new GameState(Board.initial(), Color.RED, 0,
-                0, 0, null,
-                0, 0, null,
+                0, 0, null, null,
+                0, 0, null, null,
                 System.currentTimeMillis(), GameStatus.PLAYING,
                 HiddenPiecePool.standard(), HiddenPiecePool.standard());
     }
@@ -55,5 +57,10 @@ public record GameState(
     /** Get the chased piece position for the given color. */
     public Position chasedPosition(Color color) {
         return color == Color.RED ? redChasedPosition : blackChasedPosition;
+    }
+
+    /** Get the chased piece type for the given color, or null if no chase is active. */
+    public PieceType chasedPieceType(Color color) {
+        return color == Color.RED ? redChasedPieceType : blackChasedPieceType;
     }
 }

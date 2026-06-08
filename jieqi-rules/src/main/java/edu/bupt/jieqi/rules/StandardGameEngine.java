@@ -112,7 +112,7 @@ public final class StandardGameEngine implements GameEngine {
         int moverCheck = detectConsecutiveCheck(state, mover, nextBoard);
         ChaseResult moverChase;
         if (moverCheck > 0) {
-            moverChase = new ChaseResult(0, null);
+            moverChase = new ChaseResult(0, null, null);
         } else {
             moverChase = detectConsecutiveChase(
                     state, mover, move.source(), move.destination(),
@@ -124,9 +124,11 @@ public final class StandardGameEngine implements GameEngine {
         int redCheck = mover == Color.RED ? moverCheck : state.redConsecutiveCheckCount();
         int redChase = mover == Color.RED ? moverChase.count() : state.redConsecutiveChaseCount();
         Position redChased = mover == Color.RED ? moverChase.chasedPosition() : state.redChasedPosition();
+        PieceType redChasedType = mover == Color.RED ? moverChase.chasedPieceType() : state.redChasedPieceType();
         int blackCheck = mover == Color.BLACK ? moverCheck : state.blackConsecutiveCheckCount();
         int blackChase = mover == Color.BLACK ? moverChase.count() : state.blackConsecutiveChaseCount();
         Position blackChased = mover == Color.BLACK ? moverChase.chasedPosition() : state.blackChasedPosition();
+        PieceType blackChasedType = mover == Color.BLACK ? moverChase.chasedPieceType() : state.blackChasedPieceType();
 
         GameState next = new GameState(
                 nextBoard,
@@ -135,9 +137,11 @@ public final class StandardGameEngine implements GameEngine {
                 redCheck,
                 redChase,
                 redChased,
+                redChasedType,
                 blackCheck,
                 blackChase,
                 blackChased,
+                blackChasedType,
                 System.currentTimeMillis(),
                 nextStatus,
                 redPool,
@@ -359,9 +363,11 @@ public final class StandardGameEngine implements GameEngine {
                 state.redConsecutiveCheckCount(),
                 state.redConsecutiveChaseCount(),
                 state.redChasedPosition(),
+                state.redChasedPieceType(),
                 state.blackConsecutiveCheckCount(),
                 state.blackConsecutiveChaseCount(),
                 state.blackChasedPosition(),
+                state.blackChasedPieceType(),
                 state.turnStartedAt(),
                 status,
                 state.redHiddenPool(),
@@ -385,6 +391,10 @@ public final class StandardGameEngine implements GameEngine {
      * Detect whether the mover just chased an opponent piece.
      * A chase is a new attack on a visible non-king opponent piece.
      * Returns the updated chase count and the chased piece position.
+     *
+     * Tracks the chased piece by identity, not just coordinate.
+     * When the chased piece moves between the mover's turns,
+     * its new position is detected by comparing prevBoard and nextBoard.
      * Only called when the move does NOT give check.
      */
     private ChaseResult detectConsecutiveChase(
@@ -399,18 +409,45 @@ public final class StandardGameEngine implements GameEngine {
 
         if (newTarget == null) {
             // no chase detected — reset
-            return new ChaseResult(0, null);
+            return new ChaseResult(0, null, null);
         }
+
+        PieceType newTargetType = nextBoard.pieceAt(newTarget)
+                .map(Piece::movementType)
+                .orElse(null);
 
         Position prevChased = prevState.chasedPosition(mover);
         int prevCount = prevState.consecutiveChaseCount(mover);
-        if (prevChased == null || prevChased.equals(newTarget)) {
-            // same piece being chased consecutively
-            return new ChaseResult(prevCount + 1, newTarget);
-        } else {
-            // different piece being chased — reset to 1 for the new target
-            return new ChaseResult(1, newTarget);
+
+        if (prevChased == null) {
+            // first chase
+            return new ChaseResult(1, newTarget, newTargetType);
         }
+
+        if (prevChased.equals(newTarget)) {
+            // same position — definitely the same piece
+            return new ChaseResult(prevCount + 1, newTarget,
+                    prevState.chasedPieceType(mover));
+        }
+
+        // Different position. Check whether the chased piece simply moved.
+        // Between the mover's turns the opponent makes exactly one move.
+        // If prevChased is now empty, the chased piece was moved by the
+        // opponent. Verify the piece at newTarget matches the stored type
+        // to confirm it is the same piece (not a different one that was
+        // already at that position).
+        boolean prevPosEmpty = prevBoard.pieceAt(prevChased).isEmpty();
+        PieceType prevChasedType = prevState.chasedPieceType(mover);
+
+        if (prevPosEmpty
+                && newTargetType != null
+                && newTargetType == prevChasedType) {
+            // same piece type + prev position empty → same piece moved
+            return new ChaseResult(prevCount + 1, newTarget, prevChasedType);
+        }
+
+        // different piece being chased — reset to 1 for the new target
+        return new ChaseResult(1, newTarget, newTargetType);
     }
 
     /**
@@ -499,6 +536,7 @@ public final class StandardGameEngine implements GameEngine {
     }
 
     /** Immutable result of chase detection. */
-    private record ChaseResult(int count, Position chasedPosition) {
+    private record ChaseResult(int count, Position chasedPosition,
+                               PieceType chasedPieceType) {
     }
 }

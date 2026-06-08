@@ -304,6 +304,71 @@ class RepetitionRuleTest {
         assertNull(state.chasedPosition(Color.RED));
     }
 
+    // ─── Integration: real 6-chase sequence from count 0 ──────────────
+
+    @Test
+    void realSixConsecutiveChasesFromZero() {
+        // Red rook oscillates d5↔e5, Black rook oscillates d7↔e7.
+        // Each Red move creates a new attack on the SAME Black rook
+        // (the Black rook moves between Red's turns to escape,
+        //  and Red follows). This verifies the chase counter can
+        // genuinely accumulate to 6 through alternating play.
+        GameState state = initialState(Color.RED,
+                piece("e5", Color.RED, PieceType.ROOK),
+                piece("a0", Color.RED, PieceType.KING),
+                piece("d7", Color.BLACK, PieceType.ROOK),
+                piece("i9", Color.BLACK, PieceType.KING));
+
+        // 6 Red chases with Black evasions interleaved
+        for (int i = 0; i < 6; i++) {
+            // Red: chase (alternate d5↔e5, Black's rook alternates d7↔e7)
+            String rFrom = (i % 2 == 0) ? "e5" : "d5";
+            String rTo = (i % 2 == 0) ? "d5" : "e5";
+            state = apply(state, move(rFrom, rTo));
+            assertEquals(i + 1, state.consecutiveChaseCount(Color.RED),
+                    "Chase counter should be " + (i + 1) + " after Red move " + (i + 1));
+
+            if (state.status() != GameStatus.PLAYING) break;
+
+            // Black: move chased rook to evade (alternate d7↔e7)
+            String bFrom = (i % 2 == 0) ? "d7" : "e7";
+            String bTo = (i % 2 == 0) ? "e7" : "d7";
+            state = apply(state, move(bFrom, bTo));
+            assertEquals(i + 1, state.consecutiveChaseCount(Color.RED),
+                    "Red's chase counter preserved across Black's move " + (i + 1));
+        }
+
+        assertEquals(GameStatus.BLACK_WIN, state.status(),
+                "Red's 6th consecutive chase → Black wins");
+    }
+
+    @Test
+    void realSixConsecutivePawnChasesFromZero() {
+        // Red pawn oscillates e5↔d5. Black rook oscillates d6↔e6.
+        // Pawn at d5 attacks d6 (forward 1 step); pawn at e5 attacks e6.
+        GameState state = initialState(Color.RED,
+                piece("e5", Color.RED, PieceType.PAWN),
+                piece("a0", Color.RED, PieceType.KING),
+                piece("d6", Color.BLACK, PieceType.ROOK),
+                piece("i9", Color.BLACK, PieceType.KING));
+
+        for (int i = 0; i < 6; i++) {
+            String rFrom = (i % 2 == 0) ? "e5" : "d5";
+            String rTo = (i % 2 == 0) ? "d5" : "e5";
+            state = apply(state, move(rFrom, rTo));
+            assertEquals(i + 1, state.consecutiveChaseCount(Color.RED));
+
+            if (state.status() != GameStatus.PLAYING) break;
+
+            String bFrom = (i % 2 == 0) ? "d6" : "e6";
+            String bTo = (i % 2 == 0) ? "e6" : "d6";
+            state = apply(state, move(bFrom, bTo));
+        }
+
+        assertEquals(GameStatus.DRAW, state.status(),
+                "Pawn's 6th consecutive chase → draw");
+    }
+
     // ─── Counter Isolation (per-side) ─────────────────────────────────
 
     @Test
@@ -405,6 +470,137 @@ class RepetitionRuleTest {
                 "Black should have legal moves despite being in check");
     }
 
+    // ─── Piece Identity Tracking (chasedPieceType) ──────────────────────
+
+    @Test
+    void differentPieceChaseAfterOriginalMoved_resetsCounter() {
+        // Red chases Black Rook at d7, Black moves Rook away to e7.
+        // Red then chases Black Cannon at f8 (was there all along).
+        // Counter must reset to 1 — different piece.
+        GameState state = initialState(Color.RED,
+                piece("a1", Color.RED, PieceType.ROOK),
+                piece("a0", Color.RED, PieceType.KING),
+                piece("d7", Color.BLACK, PieceType.ROOK),
+                piece("f8", Color.BLACK, PieceType.CANNON),
+                piece("i9", Color.BLACK, PieceType.KING));
+
+        // Red 1: a1→d1, attacks Black Rook at d7
+        state = apply(state, move("a1", "d1"));
+        assertEquals(1, state.consecutiveChaseCount(Color.RED));
+        assertEquals(pos("d7"), state.chasedPosition(Color.RED));
+        assertEquals(PieceType.ROOK, state.chasedPieceType(Color.RED));
+
+        // Black: d7→e7 (moves the chased rook away)
+        state = apply(state, move("d7", "e7"));
+
+        // Red 2: d1→f1, attacks Black Cannon at f8 (different piece!)
+        state = apply(state, move("d1", "f1"));
+        assertEquals(1, state.consecutiveChaseCount(Color.RED),
+                "Chasing a different piece → counter resets to 1");
+        assertEquals(pos("f8"), state.chasedPosition(Color.RED));
+        assertEquals(PieceType.CANNON, state.chasedPieceType(Color.RED));
+    }
+
+    @Test
+    void samePieceChaseAfterMove_continuesCounter() {
+        // Red chases Black Rook. Black moves same rook to evade.
+        // Red follows and chases same rook at new position.
+        GameState state = initialState(Color.RED,
+                piece("e5", Color.RED, PieceType.ROOK),
+                piece("a0", Color.RED, PieceType.KING),
+                piece("d7", Color.BLACK, PieceType.ROOK),
+                piece("i9", Color.BLACK, PieceType.KING));
+
+        // Red 1: e5→d5, now attacks Black rook at d7 (from e5→d7: dx=1,dy=2 → not straight → wasn't attacking)
+        state = apply(state, move("e5", "d5"));
+        assertEquals(1, state.consecutiveChaseCount(Color.RED));
+        assertEquals(pos("d7"), state.chasedPosition(Color.RED));
+        assertEquals(PieceType.ROOK, state.chasedPieceType(Color.RED));
+
+        // Black: d7→e7 (escapes)
+        state = apply(state, move("d7", "e7"));
+
+        // Red 2: d5→e5, now attacks Black rook at e7 (from d5→e7: dx=1,dy=2 → not straight → wasn't attacking)
+        state = apply(state, move("d5", "e5"));
+        assertEquals(2, state.consecutiveChaseCount(Color.RED),
+                "Same piece at new position → counter continues");
+        assertEquals(pos("e7"), state.chasedPosition(Color.RED));
+        assertEquals(PieceType.ROOK, state.chasedPieceType(Color.RED));
+    }
+
+    @Test
+    void chasePieceTypeIsNullWhenChaseResets() {
+        GameState state = initialState(Color.RED,
+                piece("e5", Color.RED, PieceType.ROOK),
+                piece("a0", Color.RED, PieceType.KING),
+                piece("d7", Color.BLACK, PieceType.ROOK),
+                piece("i9", Color.BLACK, PieceType.KING));
+
+        // Red: e5→d5, attacks Black rook at d7 (new attack)
+        state = apply(state, move("e5", "d5"));
+        assertEquals(PieceType.ROOK, state.chasedPieceType(Color.RED));
+        assertEquals(1, state.consecutiveChaseCount(Color.RED));
+
+        // Black: d7→d8 (move rook away)
+        state = apply(state, move("d7", "d8"));
+
+        // Red: d5→a5, moves to a-file — no longer attacks any Black piece
+        state = apply(state, move("d5", "a5"));
+        assertEquals(0, state.consecutiveChaseCount(Color.RED));
+        assertNull(state.chasedPieceType(Color.RED));
+        assertNull(state.chasedPosition(Color.RED));
+    }
+
+    @Test
+    void blackChaseCounterWorksSymmetrically() {
+        // Black rook chases Red rook — mirror test for Black-side tracking
+        GameState state = initialState(Color.BLACK,
+                piece("d4", Color.RED, PieceType.ROOK),
+                piece("a0", Color.RED, PieceType.KING),
+                piece("e7", Color.BLACK, PieceType.ROOK),
+                piece("i9", Color.BLACK, PieceType.KING));
+
+        // Black 1: e7→d7, now attacks Red rook at d4 (from e7→d4: dx=1,dy=3 not straight)
+        state = apply(state, move("e7", "d7"));
+        assertEquals(1, state.consecutiveChaseCount(Color.BLACK));
+        assertEquals(pos("d4"), state.chasedPosition(Color.BLACK));
+        assertEquals(PieceType.ROOK, state.chasedPieceType(Color.BLACK));
+
+        // Red: d4→e4 (escapes)
+        state = apply(state, move("d4", "e4"));
+        assertEquals(1, state.consecutiveChaseCount(Color.BLACK)); // preserved
+
+        // Black 2: d7→e7, attacks Red rook at e4 (new position, same piece)
+        state = apply(state, move("d7", "e7"));
+        assertEquals(2, state.consecutiveChaseCount(Color.BLACK),
+                "Black chase counter continues for same piece");
+        assertEquals(pos("e4"), state.chasedPosition(Color.BLACK));
+        assertEquals(PieceType.ROOK, state.chasedPieceType(Color.BLACK));
+    }
+
+    @Test
+    void sixConsecutiveBlackChasesTriggersRedWin() {
+        // Pre-set Black chase count = 5, one more triggers Red win.
+        // Black rook at e6 moves to d6, creating a new attack on d4.
+        GameState state = stateWithChase(Color.BLACK, 5, pos("d4"),
+                piece("e6", Color.BLACK, PieceType.ROOK),
+                piece("i9", Color.BLACK, PieceType.KING),
+                piece("d4", Color.RED, PieceType.ROOK),
+                piece("a0", Color.RED, PieceType.KING));
+
+        state = apply(state, move("e6", "d6"));
+
+        assertEquals(GameStatus.RED_WIN, state.status(),
+                "Black's 6th consecutive chase → Red wins");
+    }
+
+    @Test
+    void initialStateChasedPieceTypesAreNull() {
+        GameState state = GameState.initial();
+        assertNull(state.chasedPieceType(Color.RED));
+        assertNull(state.chasedPieceType(Color.BLACK));
+    }
+
     // ─── Helpers ───────────────────────────────────────────────────────
 
     private GameState apply(GameState state, Move move) {
@@ -421,8 +617,12 @@ class RepetitionRuleTest {
             Map.Entry<Position, Piece>... entries) {
 
         Map<Position, Piece> pieces = new LinkedHashMap<>();
+        PieceType chasedType = null;
         for (var entry : entries) {
             pieces.put(entry.getKey(), entry.getValue());
+            if (chasedPos != null && entry.getKey().equals(chasedPos)) {
+                chasedType = entry.getValue().movementType();
+            }
         }
         return new GameState(
                 new Board(pieces),
@@ -431,9 +631,11 @@ class RepetitionRuleTest {
                 turn == Color.RED ? 0 : 0,
                 turn == Color.RED ? chaseCount : 0,
                 turn == Color.RED ? chasedPos : null,
+                turn == Color.RED ? chasedType : null,
                 turn == Color.BLACK ? 0 : 0,
                 turn == Color.BLACK ? chaseCount : 0,
                 turn == Color.BLACK ? chasedPos : null,
+                turn == Color.BLACK ? chasedType : null,
                 0,
                 GameStatus.PLAYING,
                 HiddenPiecePool.standard(),
@@ -456,8 +658,10 @@ class RepetitionRuleTest {
                 turn == Color.RED ? checkCount : 0,
                 0,
                 null,
+                null,
                 turn == Color.BLACK ? checkCount : 0,
                 0,
+                null,
                 null,
                 0,
                 GameStatus.PLAYING,
