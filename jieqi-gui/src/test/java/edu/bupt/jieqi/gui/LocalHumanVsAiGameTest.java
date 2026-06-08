@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.bupt.jieqi.ai.Agent;
+import edu.bupt.jieqi.ai.ExpectiminimaxAgent;
 import edu.bupt.jieqi.model.Color;
 import edu.bupt.jieqi.model.GameStatus;
 import edu.bupt.jieqi.model.Move;
@@ -57,5 +58,12 @@ class LocalHumanVsAiGameTest {
         assertEquals(GameStatus.PLAYING, game.state().status());
         assertEquals(Color.RED, game.state().currentTurn());
         assertTrue(game.moveRecords().isEmpty());
+    }
+
+    @Test
+    void defaultHumanVsAiUsesSearchAgent() {
+        LocalHumanVsAiGame game = new LocalHumanVsAiGame();
+
+        assertTrue(game.ai() instanceof ExpectiminimaxAgent);
     }
 }

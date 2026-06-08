@@ -58,6 +58,26 @@ class GreedyAgentTest {
         assertEquals(captureRook, chosen);
     }
 
+    @Test
+    void filtersOutGreedyMoveThatLeavesKingCapturable() {
+        Move captureRook = move("b9", "b0");
+        Move escapeKing = move("e9", "d9");
+        PlayerView view = view(
+                Color.BLACK,
+                pieces(
+                        piece("e9", Color.BLACK, PieceType.KING),
+                        piece("b9", Color.BLACK, PieceType.ROOK),
+                        piece("e0", Color.RED, PieceType.KING),
+                        piece("e5", Color.RED, PieceType.ROOK),
+                        piece("b0", Color.RED, PieceType.ROOK)),
+                captureRook,
+                escapeKing);
+
+        Move chosen = new GreedyAgent().chooseMove(view, new SearchBudget(Duration.ofSeconds(1), 1));
+
+        assertEquals(escapeKing, chosen);
+    }
+
     private static PlayerView view(Color turn, Map<Position, Piece> pieces, Move... legalMoves) {
         return new PlayerView(new Board(pieces), turn, turn, List.of(legalMoves));
     }

@@ -9,6 +9,7 @@ import edu.bupt.jieqi.model.PlayerView;
 import edu.bupt.jieqi.rules.ApplyResult;
 import edu.bupt.jieqi.rules.GameEngine;
 import edu.bupt.jieqi.rules.StandardGameEngine;
+import java.util.List;
 import java.util.Objects;
 
 public final class GreedyAgent implements Agent {
@@ -30,7 +31,10 @@ public final class GreedyAgent implements Agent {
 
     @Override
     public Move chooseMove(PlayerView view, SearchBudget budget) {
-        return view.legalMoves().stream()
+        GameState state = SearchSupport.stateFrom(view);
+        List<Move> candidates = SearchSupport.safetyFilteredMoves(
+                state, view.legalMoves(), view.perspective(), engine);
+        return candidates.stream()
                 .max((left, right) -> Double.compare(score(view, left), score(view, right)))
                 .orElseThrow(() -> new IllegalStateException("No legal move is available"));
     }

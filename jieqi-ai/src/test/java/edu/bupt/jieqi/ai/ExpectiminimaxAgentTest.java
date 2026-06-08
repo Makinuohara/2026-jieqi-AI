@@ -1,6 +1,7 @@
 package edu.bupt.jieqi.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import edu.bupt.jieqi.model.Board;
 import edu.bupt.jieqi.model.Color;
@@ -68,6 +69,51 @@ class ExpectiminimaxAgentTest {
                 .chooseMove(view, new SearchBudget(Duration.ofSeconds(1), 1));
 
         assertEquals(reveal, chosen);
+    }
+
+    @Test
+    void avoidsMoveThatAllowsImmediateKingCapture() {
+        Move irrelevantMove = move("b0", "b1");
+        Move captureCheckingRook = move("a5", "e5");
+        PlayerView view = view(
+                Color.BLACK,
+                pieces(
+                        piece("e9", Color.BLACK, PieceType.KING),
+                        piece("a5", Color.BLACK, PieceType.ROOK),
+                        piece("b0", Color.BLACK, PieceType.ROOK),
+                        piece("e0", Color.RED, PieceType.KING),
+                        piece("e5", Color.RED, PieceType.ROOK)),
+                irrelevantMove,
+                captureCheckingRook);
+
+        Move chosen = new ExpectiminimaxAgent(new MaterialEvaluator())
+                .chooseMove(view, new SearchBudget(Duration.ofSeconds(1), 2));
+
+        assertEquals(captureCheckingRook, chosen);
+    }
+
+    @Test
+    void mustAnswerCheckBeforePlayingElsewhere() {
+        Move escapeKing = move("e9", "d9");
+        Move blockWithRook = move("a7", "e7");
+        Move captureMaterial = move("b9", "b0");
+        PlayerView view = view(
+                Color.BLACK,
+                pieces(
+                        piece("e9", Color.BLACK, PieceType.KING),
+                        piece("a7", Color.BLACK, PieceType.ROOK),
+                        piece("b9", Color.BLACK, PieceType.ROOK),
+                        piece("e0", Color.RED, PieceType.KING),
+                        piece("e5", Color.RED, PieceType.ROOK),
+                        piece("b0", Color.RED, PieceType.ROOK)),
+                captureMaterial,
+                escapeKing,
+                blockWithRook);
+
+        Move chosen = new ExpectiminimaxAgent(new MaterialEvaluator())
+                .chooseMove(view, new SearchBudget(Duration.ofSeconds(1), 2));
+
+        assertNotEquals(captureMaterial, chosen);
     }
 
     private static PlayerView view(Color turn, Map<Position, Piece> pieces, Move... legalMoves) {

@@ -1,7 +1,8 @@
 package edu.bupt.jieqi.gui;
 
 import edu.bupt.jieqi.ai.Agent;
-import edu.bupt.jieqi.ai.RandomAgent;
+import edu.bupt.jieqi.ai.ExpectiminimaxAgent;
+import edu.bupt.jieqi.ai.MaterialEvaluator;
 import edu.bupt.jieqi.ai.SearchBudget;
 import edu.bupt.jieqi.model.Color;
 import edu.bupt.jieqi.model.GameState;
@@ -22,7 +23,7 @@ import java.util.Optional;
 
 public final class LocalHumanVsAiGame {
     private static final SearchBudget AI_BUDGET =
-            new SearchBudget(Duration.ofSeconds(2), 1);
+            new SearchBudget(Duration.ofSeconds(5), 3);
 
     private final GameEngine engine;
     private final Agent ai;
@@ -30,7 +31,7 @@ public final class LocalHumanVsAiGame {
     private GameState state;
 
     public LocalHumanVsAiGame() {
-        this(new StandardGameEngine(), new RandomAgent());
+        this(new StandardGameEngine(), new ExpectiminimaxAgent(new MaterialEvaluator()));
     }
 
     public LocalHumanVsAiGame(GameEngine engine, Agent ai) {
@@ -93,6 +94,10 @@ public final class LocalHumanVsAiGame {
 
     public List<String> moveRecords() {
         return List.copyOf(moveRecords);
+    }
+
+    Agent ai() {
+        return ai;
     }
 
     public boolean isInCheck(Color color) {

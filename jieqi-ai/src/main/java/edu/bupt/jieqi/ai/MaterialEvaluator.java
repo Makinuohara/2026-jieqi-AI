@@ -10,6 +10,9 @@ import java.util.Map;
 public final class MaterialEvaluator implements Evaluator {
     private static final double MOBILITY_WEIGHT = 2.0;
     private static final double CAPTURE_THREAT_WEIGHT = 0.18;
+    private static final double KING_CAPTURE_THREAT = SearchSupport.WIN_SCORE / 2.0;
+    private static final double CHECK_PRESSURE = 15_000.0;
+    private static final double HANGING_PIECE_WEIGHT = 0.45;
 
     @Override
     public double evaluate(PlayerView view) {
@@ -36,9 +39,39 @@ public final class MaterialEvaluator implements Evaluator {
                                 : pieceValue(target, view) * CAPTURE_THREAT_WEIGHT)
                         .orElse(MOBILITY_WEIGHT))
                 .sum();
+        score += tacticalSafetyScore(view);
         return view.currentTurn() == view.perspective()
                 ? score + movePressure
                 : score - movePressure;
+    }
+
+    private double tacticalSafetyScore(PlayerView view) {
+        Color us = view.perspective();
+        Color them = us.opposite();
+        if (SearchSupport.canCaptureVisibleKing(view, them, us)) {
+            return -KING_CAPTURE_THREAT;
+        }
+        if (SearchSupport.canCaptureVisibleKing(view, us, them)) {
+            return KING_CAPTURE_THREAT;
+        }
+
+        double score = 0.0;
+        if (view.currentTurn() == them) {
+            score -= SearchSupport.immediateCaptureValue(view, them) * HANGING_PIECE_WEIGHT;
+            if (attacksVisibleKing(view, them, us)) {
+                score -= CHECK_PRESSURE;
+            }
+        } else if (view.currentTurn() == us) {
+            score += SearchSupport.immediateCaptureValue(view, us) * HANGING_PIECE_WEIGHT;
+            if (attacksVisibleKing(view, us, them)) {
+                score += CHECK_PRESSURE;
+            }
+        }
+        return score;
+    }
+
+    private boolean attacksVisibleKing(PlayerView view, Color attacker, Color kingOwner) {
+        return SearchSupport.canCaptureVisibleKing(view, attacker, kingOwner);
     }
 
     private double pieceValue(Piece piece, PlayerView view) {

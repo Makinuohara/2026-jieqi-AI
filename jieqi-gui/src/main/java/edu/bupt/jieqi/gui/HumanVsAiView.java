@@ -44,7 +44,7 @@ final class HumanVsAiView extends BorderPane {
     private HBox header(Runnable backAction) {
         Button back = new Button("返回");
         back.setOnAction(event -> backAction.run());
-        Label title = new Label("真人对随机人工智能");
+        Label title = new Label("真人对搜索人工智能");
         title.getStyleClass().add("section-title");
         HBox header = new HBox(14, back, title);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -53,7 +53,7 @@ final class HumanVsAiView extends BorderPane {
 
     private VBox informationPanel() {
         Label red = new Label("红方：玩家");
-        Label black = new Label("黑方：随机人工智能");
+        Label black = new Label("黑方：搜索人工智能");
         Label help = new Label("操作：先选择红方棋子，再点击高亮落点。");
         help.setWrapText(true);
         VBox panel = new VBox(12, red, black, turnLabel, statusLabel, help);
@@ -206,7 +206,7 @@ final class HumanVsAiView extends BorderPane {
             aiThinking = false;
             statusLabel.setText("人工智能运行失败：" + task.getException().getMessage());
         });
-        Thread thread = new Thread(task, "jieqi-random-ai");
+        Thread thread = new Thread(task, "jieqi-search-ai");
         thread.setDaemon(true);
         thread.start();
     }
