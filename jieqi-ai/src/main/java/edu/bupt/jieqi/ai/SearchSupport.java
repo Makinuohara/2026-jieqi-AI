@@ -292,7 +292,19 @@ final class SearchSupport {
     }
 
     static double immediateCaptureValue(PlayerView view, Color attacker) {
-        GameState state = withTurn(stateFrom(view), attacker);
+        return immediateCaptureValue(
+                view,
+                attacker,
+                inferHiddenPool(view.board(), Color.RED),
+                inferHiddenPool(view.board(), Color.BLACK));
+    }
+
+    static double immediateCaptureValue(
+            PlayerView view,
+            Color attacker,
+            HiddenPiecePool redPool,
+            HiddenPiecePool blackPool) {
+        GameState state = withTurn(stateFrom(view, redPool, blackPool), attacker);
         List<Move> legalMoves = DEFAULT_ENGINE.legalMoves(state);
         double best = 0.0;
         for (Move move : legalMoves) {
@@ -302,10 +314,17 @@ final class SearchSupport {
             }
             double value = target.visible()
                     ? target.actualType().baseValue()
-                    : expectedHiddenValue(inferHiddenPool(view.board(), target.owner()));
+                    : expectedHiddenValue(hiddenPoolFor(target.owner(), redPool, blackPool));
             best = Math.max(best, value);
         }
         return best;
+    }
+
+    private static HiddenPiecePool hiddenPoolFor(
+            Color owner,
+            HiddenPiecePool redPool,
+            HiddenPiecePool blackPool) {
+        return owner == Color.RED ? redPool : blackPool;
     }
 
     static GameState withTurn(GameState state, Color currentTurn) {

@@ -59,7 +59,7 @@ public final class GreedyAgent implements Agent {
         if (!Double.isNaN(terminal)) {
             return terminal;
         }
-        return evaluator.evaluate(SearchSupport.viewFrom(result.state(), view.perspective(), engine));
+        return evaluate(result.state(), view.perspective());
     }
 
     private double expectedRevealScore(
@@ -83,10 +83,17 @@ public final class GreedyAgent implements Agent {
             }
             double terminal = SearchSupport.terminalValue(result.state().status(), perspective);
             double value = Double.isNaN(terminal)
-                    ? evaluator.evaluate(SearchSupport.viewFrom(result.state(), perspective, engine))
+                    ? evaluate(result.state(), perspective)
                     : terminal;
             expected += value * count / pool.total();
         }
         return expected;
+    }
+
+    private double evaluate(GameState state, edu.bupt.jieqi.model.Color perspective) {
+        return evaluator.evaluate(
+                SearchSupport.viewFrom(state, perspective, engine),
+                state.redHiddenPool(),
+                state.blackHiddenPool());
     }
 }

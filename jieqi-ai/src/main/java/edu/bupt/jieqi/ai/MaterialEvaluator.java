@@ -5,6 +5,7 @@ import edu.bupt.jieqi.model.PieceType;
 import edu.bupt.jieqi.model.PlayerView;
 import edu.bupt.jieqi.model.Position;
 import edu.bupt.jieqi.model.Color;
+import edu.bupt.jieqi.model.HiddenPiecePool;
 import java.util.Map;
 
 public final class MaterialEvaluator implements Evaluator {
@@ -16,17 +17,21 @@ public final class MaterialEvaluator implements Evaluator {
 
     @Override
     public double evaluate(PlayerView view) {
-        double score = 0.0;
-        double redHidden = SearchSupport.expectedHiddenValue(
-                SearchSupport.inferHiddenPool(view.board(), Color.RED));
-        double blackHidden = SearchSupport.expectedHiddenValue(
+        return evaluate(
+                view,
+                SearchSupport.inferHiddenPool(view.board(), Color.RED),
                 SearchSupport.inferHiddenPool(view.board(), Color.BLACK));
+    }
+
+    @Override
+    public double evaluate(PlayerView view, HiddenPiecePool redPool, HiddenPiecePool blackPool) {
+        double score = 0.0;
+        double redHidden = SearchSupport.expectedHiddenValue(redPool);
+        double blackHidden = SearchSupport.expectedHiddenValue(blackPool);
 
         for (Map.Entry<Position, Piece> entry : view.board().pieces().entrySet()) {
             Piece piece = entry.getValue();
-            double hiddenValue = piece.owner() == Color.RED
-                    ? redHidden
-                    : blackHidden;
+            double hiddenValue = hiddenValue(piece.owner(), redHidden, blackHidden);
             double value = piece.visible() ? piece.actualType().baseValue() : hiddenValue;
             value += positionBonus(entry.getKey(), piece);
             score += piece.owner() == view.perspective() ? value : -value;
@@ -36,16 +41,16 @@ public final class MaterialEvaluator implements Evaluator {
                 .mapToDouble(move -> view.board().pieceAt(move.destination())
                         .map(target -> target.visible() && target.actualType() == PieceType.KING
                                 ? SearchSupport.WIN_SCORE / 20.0
-                                : pieceValue(target, view) * CAPTURE_THREAT_WEIGHT)
+                                : pieceValue(target, redHidden, blackHidden) * CAPTURE_THREAT_WEIGHT)
                         .orElse(MOBILITY_WEIGHT))
                 .sum();
-        score += tacticalSafetyScore(view);
+        score += tacticalSafetyScore(view, redPool, blackPool);
         return view.currentTurn() == view.perspective()
                 ? score + movePressure
                 : score - movePressure;
     }
 
-    private double tacticalSafetyScore(PlayerView view) {
+    private double tacticalSafetyScore(PlayerView view, HiddenPiecePool redPool, HiddenPiecePool blackPool) {
         Color us = view.perspective();
         Color them = us.opposite();
         if (SearchSupport.canCaptureVisibleKing(view, them, us)) {
@@ -57,12 +62,12 @@ public final class MaterialEvaluator implements Evaluator {
 
         double score = 0.0;
         if (view.currentTurn() == them) {
-            score -= SearchSupport.immediateCaptureValue(view, them) * HANGING_PIECE_WEIGHT;
+            score -= SearchSupport.immediateCaptureValue(view, them, redPool, blackPool) * HANGING_PIECE_WEIGHT;
             if (attacksVisibleKing(view, them, us)) {
                 score -= CHECK_PRESSURE;
             }
         } else if (view.currentTurn() == us) {
-            score += SearchSupport.immediateCaptureValue(view, us) * HANGING_PIECE_WEIGHT;
+            score += SearchSupport.immediateCaptureValue(view, us, redPool, blackPool) * HANGING_PIECE_WEIGHT;
             if (attacksVisibleKing(view, us, them)) {
                 score += CHECK_PRESSURE;
             }
@@ -74,11 +79,15 @@ public final class MaterialEvaluator implements Evaluator {
         return SearchSupport.canCaptureVisibleKing(view, attacker, kingOwner);
     }
 
-    private double pieceValue(Piece piece, PlayerView view) {
+    private double pieceValue(Piece piece, double redHidden, double blackHidden) {
         if (piece.visible()) {
             return piece.actualType().baseValue();
         }
-        return SearchSupport.expectedHiddenValue(SearchSupport.inferHiddenPool(view.board(), piece.owner()));
+        return hiddenValue(piece.owner(), redHidden, blackHidden);
+    }
+
+    private double hiddenValue(Color owner, double redHidden, double blackHidden) {
+        return owner == Color.RED ? redHidden : blackHidden;
     }
 
     private double positionBonus(Position position, Piece piece) {
