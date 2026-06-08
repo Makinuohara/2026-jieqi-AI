@@ -6,8 +6,12 @@ public record GameState(
         Board board,
         Color currentTurn,
         int noCaptureHalfMoves,
-        int consecutiveCheckCount,
-        int consecutiveChaseCount,
+        int redConsecutiveCheckCount,
+        int redConsecutiveChaseCount,
+        Position redChasedPosition,
+        int blackConsecutiveCheckCount,
+        int blackConsecutiveChaseCount,
+        Position blackChasedPosition,
         long turnStartedAt,
         GameStatus status,
         HiddenPiecePool redHiddenPool,
@@ -19,18 +23,37 @@ public record GameState(
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(redHiddenPool, "redHiddenPool");
         Objects.requireNonNull(blackHiddenPool, "blackHiddenPool");
-        if (noCaptureHalfMoves < 0 || consecutiveCheckCount < 0 || consecutiveChaseCount < 0) {
+        if (noCaptureHalfMoves < 0
+                || redConsecutiveCheckCount < 0 || redConsecutiveChaseCount < 0
+                || blackConsecutiveCheckCount < 0 || blackConsecutiveChaseCount < 0) {
             throw new IllegalArgumentException("Counters cannot be negative");
         }
     }
 
     public static GameState initial() {
-        return new GameState(Board.initial(), Color.RED, 0, 0, 0,
+        return new GameState(Board.initial(), Color.RED, 0,
+                0, 0, null,
+                0, 0, null,
                 System.currentTimeMillis(), GameStatus.PLAYING,
                 HiddenPiecePool.standard(), HiddenPiecePool.standard());
     }
 
     public HiddenPiecePool hiddenPool(Color color) {
         return color == Color.RED ? redHiddenPool : blackHiddenPool;
+    }
+
+    /** Get the consecutive check count for the given color. */
+    public int consecutiveCheckCount(Color color) {
+        return color == Color.RED ? redConsecutiveCheckCount : blackConsecutiveCheckCount;
+    }
+
+    /** Get the consecutive chase count for the given color. */
+    public int consecutiveChaseCount(Color color) {
+        return color == Color.RED ? redConsecutiveChaseCount : blackConsecutiveChaseCount;
+    }
+
+    /** Get the chased piece position for the given color. */
+    public Position chasedPosition(Color color) {
+        return color == Color.RED ? redChasedPosition : blackChasedPosition;
     }
 }
