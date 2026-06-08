@@ -105,16 +105,57 @@ public final class StandardGameEngine implements GameEngine {
             nextStatus = GameStatus.DRAW;
         }
 
+        // detect perpetual check/chase for the mover.
+        // Check takes priority — when a move gives check, it does not
+        // also count as a chase (the chase counter resets).
+        Color mover = source.owner();
+        int moverCheck = detectConsecutiveCheck(state, mover, nextBoard);
+        ChaseResult moverChase;
+        if (moverCheck > 0) {
+            moverChase = new ChaseResult(0, null, null);
+        } else {
+            moverChase = detectConsecutiveChase(
+                    state, mover, move.source(), move.destination(),
+                    movedPiece, state.board(), nextBoard);
+        }
+
+        // preserve the opponent's counters unchanged
+        Color opponent = mover.opposite();
+        int redCheck = mover == Color.RED ? moverCheck : state.redConsecutiveCheckCount();
+        int redChase = mover == Color.RED ? moverChase.count() : state.redConsecutiveChaseCount();
+        Position redChased = mover == Color.RED ? moverChase.chasedPosition() : state.redChasedPosition();
+        PieceType redChasedType = mover == Color.RED ? moverChase.chasedPieceType() : state.redChasedPieceType();
+        int blackCheck = mover == Color.BLACK ? moverCheck : state.blackConsecutiveCheckCount();
+        int blackChase = mover == Color.BLACK ? moverChase.count() : state.blackConsecutiveChaseCount();
+        Position blackChased = mover == Color.BLACK ? moverChase.chasedPosition() : state.blackChasedPosition();
+        PieceType blackChasedType = mover == Color.BLACK ? moverChase.chasedPieceType() : state.blackChasedPieceType();
+
         GameState next = new GameState(
                 nextBoard,
                 nextTurn,
                 nextNoCaptureHalfMoves,
-                0,
-                0,
+                redCheck,
+                redChase,
+                redChased,
+                redChasedType,
+                blackCheck,
+                blackChase,
+                blackChased,
+                blackChasedType,
                 System.currentTimeMillis(),
                 nextStatus,
                 redPool,
                 blackPool);
+
+        // apply perpetual check/chase endgame before stalemate
+        if (nextStatus == GameStatus.PLAYING) {
+            GameStatus repetitionResult = judgeRepetition(
+                    source.owner(), next, movedPiece);
+            if (repetitionResult != GameStatus.PLAYING) {
+                nextStatus = repetitionResult;
+                next = withStatus(next, nextStatus);
+            }
+        }
 
         if (nextStatus == GameStatus.PLAYING && legalMoves(next).isEmpty()) {
             nextStatus = source.owner() == Color.RED
@@ -319,11 +360,183 @@ public final class StandardGameEngine implements GameEngine {
                 state.board(),
                 state.currentTurn(),
                 state.noCaptureHalfMoves(),
-                state.consecutiveCheckCount(),
-                state.consecutiveChaseCount(),
+                state.redConsecutiveCheckCount(),
+                state.redConsecutiveChaseCount(),
+                state.redChasedPosition(),
+                state.redChasedPieceType(),
+                state.blackConsecutiveCheckCount(),
+                state.blackConsecutiveChaseCount(),
+                state.blackChasedPosition(),
+                state.blackChasedPieceType(),
                 state.turnStartedAt(),
                 status,
                 state.redHiddenPool(),
                 state.blackHiddenPool());
+    }
+
+    /**
+     * Detect whether the mover just gave check to the opponent.
+     * If yes, increment the consecutive check counter; otherwise reset to 0.
+     * A check also resets the chase counter (check takes priority over chase).
+     */
+    private int detectConsecutiveCheck(
+            GameState prevState, Color mover, Board nextBoard) {
+        if (isInCheckOnBoard(nextBoard, mover.opposite())) {
+            return prevState.consecutiveCheckCount(mover) + 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Detect whether the mover just chased an opponent piece.
+     * A chase is a new attack on a visible non-king opponent piece.
+     * Returns the updated chase count and the chased piece position.
+     *
+     * Tracks the chased piece by identity, not just coordinate.
+     * When the chased piece moves between the mover's turns,
+     * its new position is detected by comparing prevBoard and nextBoard.
+     * Only called when the move does NOT give check.
+     */
+    private ChaseResult detectConsecutiveChase(
+            GameState prevState, Color mover,
+            Position source, Position destination,
+            Piece movedPiece, Board prevBoard, Board nextBoard) {
+
+        // find the first newly-attacked opponent visible non-king piece
+        Position newTarget = findNewChaseTarget(
+                prevBoard, source, nextBoard, destination,
+                movedPiece, mover);
+
+        if (newTarget == null) {
+            // no chase detected — reset
+            return new ChaseResult(0, null, null);
+        }
+
+        PieceType newTargetType = nextBoard.pieceAt(newTarget)
+                .map(Piece::movementType)
+                .orElse(null);
+
+        Position prevChased = prevState.chasedPosition(mover);
+        int prevCount = prevState.consecutiveChaseCount(mover);
+
+        if (prevChased == null) {
+            // first chase
+            return new ChaseResult(1, newTarget, newTargetType);
+        }
+
+        if (prevChased.equals(newTarget)) {
+            // same position — definitely the same piece
+            return new ChaseResult(prevCount + 1, newTarget,
+                    prevState.chasedPieceType(mover));
+        }
+
+        // Different position. Check whether the chased piece simply moved.
+        // Between the mover's turns the opponent makes exactly one move.
+        // If prevChased is now empty, the chased piece was moved by the
+        // opponent. Verify the piece at newTarget matches the stored type
+        // to confirm it is the same piece (not a different one that was
+        // already at that position).
+        boolean prevPosEmpty = prevBoard.pieceAt(prevChased).isEmpty();
+        PieceType prevChasedType = prevState.chasedPieceType(mover);
+
+        if (prevPosEmpty
+                && newTargetType != null
+                && newTargetType == prevChasedType) {
+            // same piece type + prev position empty → same piece moved
+            return new ChaseResult(prevCount + 1, newTarget, prevChasedType);
+        }
+
+        // different piece being chased — reset to 1 for the new target
+        return new ChaseResult(1, newTarget, newTargetType);
+    }
+
+    /**
+     * Find an opponent visible non-king piece that the moved piece attacks now
+     * but did NOT attack from its source position before the move.
+     * Returns the position of the first such piece, or null if none found.
+     */
+    private Position findNewChaseTarget(
+            Board prevBoard, Position source,
+            Board nextBoard, Position destination,
+            Piece movedPiece, Color mover) {
+
+        for (var entry : nextBoard.pieces().entrySet()) {
+            Position targetPos = entry.getKey();
+            Piece targetPiece = entry.getValue();
+
+            // only chase visible opponent pieces that are not kings
+            if (targetPiece.owner() != mover.opposite()) {
+                continue;
+            }
+            if (!targetPiece.visible()) {
+                continue;
+            }
+            if (targetPiece.actualType() == PieceType.KING) {
+                continue;
+            }
+
+            // does the moved piece attack this target now?
+            if (!canAttack(nextBoard, destination, targetPos, movedPiece)) {
+                continue;
+            }
+
+            // was this target already being attacked by the same piece
+            // from its original position?
+            Piece pieceAtSource = prevBoard.pieceAt(source).orElse(null);
+            if (pieceAtSource != null
+                    && canAttack(prevBoard, source, targetPos, pieceAtSource)) {
+                continue; // already attacked before — not a new chase
+            }
+
+            return targetPos;
+        }
+        return null;
+    }
+
+    /**
+     * Judge whether the repetition limit (6) has been reached for either
+     * perpetual check or perpetual chase. Returns the game-ending status,
+     * or PLAYING if neither limit has been reached.
+     *
+     * Pawn perpetual chase → DRAW (special exception).
+     * Any other perpetual chase → chaser loses.
+     * Perpetual check (including by pawn) → checker loses.
+     */
+    private GameStatus judgeRepetition(
+            Color mover, GameState next, Piece movedPiece) {
+
+        if (next.consecutiveCheckCount(mover) >= RulesConstants.REPETITION_LIMIT) {
+            return mover == Color.RED ? GameStatus.BLACK_WIN : GameStatus.RED_WIN;
+        }
+
+        if (next.consecutiveChaseCount(mover) >= RulesConstants.REPETITION_LIMIT) {
+            if (movedPiece.movementType() == PieceType.PAWN) {
+                return GameStatus.DRAW;
+            }
+            return mover == Color.RED ? GameStatus.BLACK_WIN : GameStatus.RED_WIN;
+        }
+
+        return GameStatus.PLAYING;
+    }
+
+    /**
+     * Check whether a color is in check on a given board.
+     * (Variant of {@link #isInCheck(GameState, Color)} that works directly
+     * on a Board, needed before creating the next GameState.)
+     */
+    private boolean isInCheckOnBoard(Board board, Color color) {
+        Position king = findKing(board, color);
+        if (king == null) {
+            return false;
+        }
+        return board.pieces().entrySet().stream()
+                .filter(entry -> entry.getValue().owner() == color.opposite())
+                .anyMatch(entry -> canAttack(
+                        board, entry.getKey(), king, entry.getValue()));
+    }
+
+    /** Immutable result of chase detection. */
+    private record ChaseResult(int count, Position chasedPosition,
+                               PieceType chasedPieceType) {
     }
 }
