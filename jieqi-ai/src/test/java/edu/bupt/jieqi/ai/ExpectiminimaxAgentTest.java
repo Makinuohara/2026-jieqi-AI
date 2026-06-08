@@ -10,10 +10,13 @@ import edu.bupt.jieqi.model.Piece;
 import edu.bupt.jieqi.model.PieceType;
 import edu.bupt.jieqi.model.PlayerView;
 import edu.bupt.jieqi.model.Position;
+import java.lang.reflect.Field;
 import java.time.Duration;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 class ExpectiminimaxAgentTest {
@@ -72,6 +75,49 @@ class ExpectiminimaxAgentTest {
     }
 
     @Test
+    void ignoresTimedOutChanceNodeInsteadOfUsingPartialExpectation() {
+        Move riskyReveal = move("a0", "a9");
+        Move stableCapture = move("b0", "b6");
+        AtomicBoolean slept = new AtomicBoolean();
+        PlayerView view = view(
+                Color.RED,
+                pieces(
+                        piece("e0", Color.RED, PieceType.KING),
+                        hidden("a0", Color.RED, PieceType.ROOK),
+                        piece("b0", Color.RED, PieceType.ROOK),
+                        piece("e5", Color.RED, PieceType.PAWN),
+                        piece("e9", Color.BLACK, PieceType.KING),
+                        piece("a9", Color.BLACK, PieceType.ROOK),
+                        piece("b6", Color.BLACK, PieceType.PAWN)),
+                stableCapture,
+                riskyReveal);
+
+        Evaluator volatileRevealValue = currentView -> {
+            currentView.board().pieceAt(pos("a9"))
+                    .filter(piece -> piece.owner() == Color.RED)
+                    .filter(Piece::visible)
+                    .ifPresent(ignored -> {
+                        if (slept.compareAndSet(false, true)) {
+                            sleep(80);
+                        }
+                    });
+            return currentView.board().pieceAt(pos("a9"))
+                    .filter(piece -> piece.owner() == Color.RED)
+                    .filter(Piece::visible)
+                    .map(piece -> piece.actualType() == PieceType.ROOK ? 1_000_000.0 : -1_000_000.0)
+                    .orElseGet(() -> currentView.board().pieceAt(pos("b6"))
+                            .filter(piece -> piece.owner() == Color.RED)
+                            .map(ignored -> 1_000.0)
+                            .orElse(0.0));
+        };
+
+        Move chosen = new ExpectiminimaxAgent(volatileRevealValue)
+                .chooseMove(view, new SearchBudget(Duration.ofMillis(30), 1));
+
+        assertEquals(stableCapture, chosen);
+    }
+
+    @Test
     void avoidsMoveThatAllowsImmediateKingCapture() {
         Move irrelevantMove = move("b0", "b1");
         Move captureCheckingRook = move("a5", "e5");
@@ -116,6 +162,39 @@ class ExpectiminimaxAgentTest {
         assertNotEquals(captureMaterial, chosen);
     }
 
+    @Test
+    void remembersSecondVisiblePieceOfSameTypeAfterFirstWasCaptured() throws Exception {
+        Move blackWaitingMove = move("a9", "a8");
+        ExpectiminimaxAgent agent = new ExpectiminimaxAgent(new MaterialEvaluator());
+        SearchBudget noSearch = new SearchBudget(Duration.ofMillis(1), 1);
+
+        agent.chooseMove(view(
+                Color.BLACK,
+                pieces(
+                        piece("e0", Color.RED, PieceType.KING),
+                        piece("a0", Color.RED, PieceType.ROOK),
+                        piece("e9", Color.BLACK, PieceType.KING),
+                        piece("a9", Color.BLACK, PieceType.ROOK)),
+                blackWaitingMove), noSearch);
+        agent.chooseMove(view(
+                Color.BLACK,
+                pieces(
+                        piece("e0", Color.RED, PieceType.KING),
+                        piece("e9", Color.BLACK, PieceType.KING),
+                        piece("a9", Color.BLACK, PieceType.ROOK)),
+                blackWaitingMove), noSearch);
+        agent.chooseMove(view(
+                Color.BLACK,
+                pieces(
+                        piece("e0", Color.RED, PieceType.KING),
+                        piece("b0", Color.RED, PieceType.ROOK),
+                        piece("e9", Color.BLACK, PieceType.KING),
+                        piece("a9", Color.BLACK, PieceType.ROOK)),
+                blackWaitingMove), noSearch);
+
+        assertEquals(2, revealedMemory(agent).get(Color.RED).get(PieceType.ROOK));
+    }
+
     private static PlayerView view(Color turn, Map<Position, Piece> pieces, Move... legalMoves) {
         return new PlayerView(new Board(pieces), turn, turn, List.of(legalMoves));
     }
@@ -145,5 +224,21 @@ class ExpectiminimaxAgentTest {
 
     private static Move move(String source, String destination) {
         return new Move(pos(source), pos(destination), 0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Color, EnumMap<PieceType, Integer>> revealedMemory(
+            ExpectiminimaxAgent agent) throws Exception {
+        Field field = ExpectiminimaxAgent.class.getDeclaredField("revealedMemory");
+        field.setAccessible(true);
+        return (Map<Color, EnumMap<PieceType, Integer>>) field.get(agent);
+    }
+
+    private static void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

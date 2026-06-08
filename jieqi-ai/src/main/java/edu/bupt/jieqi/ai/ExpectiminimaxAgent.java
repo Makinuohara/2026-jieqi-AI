@@ -2,6 +2,7 @@ package edu.bupt.jieqi.ai;
 
 import edu.bupt.jieqi.model.Color;
 import edu.bupt.jieqi.model.GameState;
+import edu.bupt.jieqi.model.HiddenPiecePool;
 import edu.bupt.jieqi.model.Move;
 import edu.bupt.jieqi.model.Piece;
 import edu.bupt.jieqi.model.PieceType;
@@ -26,6 +27,7 @@ public final class ExpectiminimaxAgent implements Agent {
     private final GreedyAgent fallback;
     // 只记录对局中已经公开见过的明子，不记录暗子的真实身份，避免 AI 偷看信息。
     private final Map<Color, EnumMap<PieceType, Integer>> revealedMemory = new EnumMap<>(Color.class);
+    private final Map<Color, EnumMap<PieceType, Integer>> previousVisibleCounts = new EnumMap<>(Color.class);
     private String previousObservationKey;
 
     public ExpectiminimaxAgent(Evaluator evaluator) {
@@ -38,6 +40,7 @@ public final class ExpectiminimaxAgent implements Agent {
         this.fallback = new GreedyAgent(evaluator, engine);
         for (Color color : Color.values()) {
             revealedMemory.put(color, new EnumMap<>(PieceType.class));
+            previousVisibleCounts.put(color, new EnumMap<>(PieceType.class));
         }
     }
 
@@ -77,6 +80,9 @@ public final class ExpectiminimaxAgent implements Agent {
                     -SearchSupport.WIN_SCORE,
                     SearchSupport.WIN_SCORE,
                     context);
+            if (Double.isNaN(score)) {
+                break;
+            }
             if (bestMove == null || score > bestScore) {
                 bestMove = move;
                 bestScore = score;
@@ -105,7 +111,7 @@ public final class ExpectiminimaxAgent implements Agent {
             if (shouldQuiesce(state, perspective)) {
                 return quiescence(state, perspective, alpha, beta, context, QUIESCENCE_DEPTH);
             }
-            return evaluator.evaluate(SearchSupport.viewFrom(state, perspective, engine));
+            return evaluate(state, perspective);
         }
 
         // 本次思考内的置换表，缓存已经完整搜索过的局面，减少重复子树计算。
@@ -141,6 +147,10 @@ public final class ExpectiminimaxAgent implements Agent {
                     alpha,
                     beta,
                     context);
+            if (Double.isNaN(score)) {
+                completed = false;
+                break;
+            }
             if (maximizing) {
                 best = Math.max(best, score);
                 alpha = Math.max(alpha, best);
@@ -155,7 +165,10 @@ public final class ExpectiminimaxAgent implements Agent {
             }
         }
         if (!searchedAny) {
-            return evaluator.evaluate(SearchSupport.viewFrom(state, perspective, engine));
+            return evaluate(state, perspective);
+        }
+        if (!completed) {
+            return Double.NaN;
         }
         if (completed && !cutoff && context.cache().size() < MAX_TRANSPOSITION_ENTRIES) {
             context.cache().put(key, new CacheEntry(depth, best));
@@ -183,10 +196,13 @@ public final class ExpectiminimaxAgent implements Agent {
         double childBeta = chanceNode ? SearchSupport.WIN_SCORE : beta;
         for (SearchSupport.WeightedState outcome : outcomes) {
             if (timedOut(context.deadline())) {
-                break;
+                return Double.NaN;
             }
-            expected += value(outcome.state(), perspective, depth, childAlpha, childBeta, context)
-                    * outcome.probability();
+            double childValue = value(outcome.state(), perspective, depth, childAlpha, childBeta, context);
+            if (Double.isNaN(childValue)) {
+                return Double.NaN;
+            }
+            expected += childValue * outcome.probability();
         }
         return expected;
     }
@@ -203,7 +219,7 @@ public final class ExpectiminimaxAgent implements Agent {
             return terminal;
         }
 
-        double standPat = evaluator.evaluate(SearchSupport.viewFrom(state, perspective, engine));
+        double standPat = evaluate(state, perspective);
         if (timedOut(context.deadline())) {
             return standPat;
         }
@@ -279,7 +295,7 @@ public final class ExpectiminimaxAgent implements Agent {
         double childBeta = chanceNode ? SearchSupport.WIN_SCORE : beta;
         for (SearchSupport.WeightedState outcome : outcomes) {
             if (timedOut(context.deadline())) {
-                return evaluator.evaluate(SearchSupport.viewFrom(state, perspective, engine));
+                return evaluate(state, perspective);
             }
             expected += quiescence(
                     outcome.state(),
@@ -405,9 +421,29 @@ public final class ExpectiminimaxAgent implements Agent {
         }
         for (Color color : Color.values()) {
             EnumMap<PieceType, Integer> counts = revealedMemory.get(color);
-            currentVisible.get(color).forEach((type, visibleCount) ->
-                    counts.merge(type, visibleCount, Math::max));
+            EnumMap<PieceType, Integer> previousVisible = previousVisibleCounts.get(color);
+            for (PieceType type : PieceType.values()) {
+                if (type == PieceType.KING) {
+                    continue;
+                }
+                int visibleCount = currentVisible.get(color).getOrDefault(type, 0);
+                int previousCount = previousVisible.getOrDefault(type, 0);
+                int newlyVisible = Math.max(0, visibleCount - previousCount);
+                if (newlyVisible > 0) {
+                    rememberNewlyVisible(counts, type, newlyVisible);
+                }
+            }
+            previousVisible.clear();
+            previousVisible.putAll(currentVisible.get(color));
         }
+    }
+
+    private void rememberNewlyVisible(
+            EnumMap<PieceType, Integer> counts,
+            PieceType type,
+            int newlyVisible) {
+        int limit = HiddenPiecePool.standard().count(type);
+        counts.merge(type, newlyVisible, (known, added) -> Math.min(limit, known + added));
     }
 
     private boolean looksLikeOpeningAfterRestart(PlayerView view) {
@@ -431,6 +467,16 @@ public final class ExpectiminimaxAgent implements Agent {
         for (EnumMap<PieceType, Integer> counts : revealedMemory.values()) {
             counts.clear();
         }
+        for (EnumMap<PieceType, Integer> counts : previousVisibleCounts.values()) {
+            counts.clear();
+        }
+    }
+
+    private double evaluate(GameState state, Color perspective) {
+        return evaluator.evaluate(
+                SearchSupport.viewFrom(state, perspective, engine),
+                state.redHiddenPool(),
+                state.blackHiddenPool());
     }
 
     private String observationKey(PlayerView view) {
