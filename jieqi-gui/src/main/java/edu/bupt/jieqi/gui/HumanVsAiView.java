@@ -4,6 +4,7 @@ import edu.bupt.jieqi.model.Color;
 import edu.bupt.jieqi.model.GameStatus;
 import edu.bupt.jieqi.model.Move;
 import edu.bupt.jieqi.model.Piece;
+import edu.bupt.jieqi.model.PieceType;
 import edu.bupt.jieqi.model.Position;
 import java.util.List;
 import java.util.Optional;
@@ -15,9 +16,9 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 final class HumanVsAiView extends BorderPane {
@@ -25,6 +26,7 @@ final class HumanVsAiView extends BorderPane {
     private final Button[][] squares = new Button[9][10];
     private final Label turnLabel = new Label();
     private final Label statusLabel = new Label();
+    private final Label checkStatusLabel = new Label();
     private final ListView<String> moveList = new ListView<>();
     private Position selected;
     private boolean aiThinking;
@@ -56,27 +58,16 @@ final class HumanVsAiView extends BorderPane {
         Label black = new Label("黑方：搜索人工智能");
         Label help = new Label("操作：先选择红方棋子，再点击高亮落点。");
         help.setWrapText(true);
-        VBox panel = new VBox(12, red, black, turnLabel, statusLabel, help);
+        checkStatusLabel.getStyleClass().add("check-status");
+        checkStatusLabel.setWrapText(true);
+        VBox panel = new VBox(12, red, black, turnLabel, statusLabel, checkStatusLabel, help);
         panel.getStyleClass().add("panel");
         panel.setPrefWidth(220);
         return panel;
     }
 
-    private GridPane board() {
-        GridPane board = new GridPane();
-        board.setAlignment(Pos.CENTER);
-        board.getStyleClass().add("chess-board");
-        for (int rank = 9; rank >= 0; rank--) {
-            for (int file = 0; file < 9; file++) {
-                Position position = new Position(file, rank);
-                Button square = new Button();
-                square.getStyleClass().add("square");
-                square.setOnAction(event -> handleSquare(position));
-                squares[file][rank] = square;
-                board.add(square, file, 9 - rank);
-            }
-        }
-        return board;
+    private StackPane board() {
+        return BoardViewFactory.createBoard(squares, this::handleSquare, true);
     }
 
     private VBox recordPanel() {
@@ -213,23 +204,45 @@ final class HumanVsAiView extends BorderPane {
 
     private void refresh() {
         List<Move> selectedMoves = legalMovesFromSelected();
+        Move lastMove = game.lastMove().orElse(null);
+        Color lastMover = game.lastMover().orElse(null);
         for (int file = 0; file < 9; file++) {
             for (int rank = 0; rank <= 9; rank++) {
                 Position position = new Position(file, rank);
                 Button square = squares[file][rank];
                 square.getStyleClass().removeAll(
-                        "red-piece", "black-piece", "selected-square", "legal-target");
+                        "red-piece", "black-piece", "occupied-piece", "hidden-piece",
+                        "selected-square", "legal-target-empty", "legal-target-capture", "check-target",
+                        "last-move-from", "last-move-to", "opponent-move-from", "opponent-move-to");
                 Piece piece = game.state().board().pieceAt(position).orElse(null);
                 square.setText(PieceTextFormatter.format(piece));
                 if (piece != null) {
+                    square.getStyleClass().add("occupied-piece");
                     square.getStyleClass().add(
                             piece.owner() == Color.RED ? "red-piece" : "black-piece");
+                    if (!piece.visible()) {
+                        square.getStyleClass().add("hidden-piece");
+                    }
                 }
                 if (position.equals(selected)) {
                     square.getStyleClass().add("selected-square");
                 }
                 if (selectedMoves.stream().anyMatch(move -> move.destination().equals(position))) {
-                    square.getStyleClass().add("legal-target");
+                    square.getStyleClass().add(
+                            piece == null ? "legal-target-empty" : "legal-target-capture");
+                }
+                if (lastMove != null && lastMove.source().equals(position)) {
+                    square.getStyleClass().add(lastMover == Color.BLACK
+                            ? "opponent-move-from" : "last-move-from");
+                }
+                if (lastMove != null && lastMove.destination().equals(position)) {
+                    square.getStyleClass().add(lastMover == Color.BLACK
+                            ? "opponent-move-to" : "last-move-to");
+                }
+                if (piece != null && piece.actualType() == PieceType.KING
+                        && ((piece.owner() == Color.RED && game.isInCheck(Color.RED))
+                        || (piece.owner() == Color.BLACK && game.isInCheck(Color.BLACK)))) {
+                    square.getStyleClass().add("check-target");
                 }
             }
         }
@@ -238,6 +251,7 @@ final class HumanVsAiView extends BorderPane {
                 ? "当前回合：人工智能思考中"
                 : "当前回合：" + colorText(game.state().currentTurn()));
         statusLabel.setText(statusText());
+        checkStatusLabel.setText(checkStatusText(game.isInCheck(Color.RED), game.isInCheck(Color.BLACK)));
         moveList.getItems().setAll(game.moveRecords());
         if (!moveList.getItems().isEmpty()) {
             moveList.scrollTo(moveList.getItems().size() - 1);
@@ -253,6 +267,19 @@ final class HumanVsAiView extends BorderPane {
                 game.state().status(),
                 game.isInCheck(Color.RED),
                 game.isInCheck(Color.BLACK));
+    }
+
+    static String checkStatusText(boolean redInCheck, boolean blackInCheck) {
+        if (redInCheck && blackInCheck) {
+            return "将军提示：双方对将";
+        }
+        if (redInCheck) {
+            return "将军提示：红方被将军";
+        }
+        if (blackInCheck) {
+            return "将军提示：黑方被将军";
+        }
+        return "将军提示：当前无将军";
     }
 
     static String statusText(
