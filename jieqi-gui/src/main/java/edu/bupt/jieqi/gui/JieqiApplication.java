@@ -58,6 +58,11 @@ public final class JieqiApplication extends Application {
                     () -> stage.getScene().setRoot(home(stage))));
             return;
         }
+        if ("本地人工智能对弈".equals(mode)) {
+            stage.getScene().setRoot(new LocalAiVsAiView(
+                    () -> stage.getScene().setRoot(home(stage))));
+            return;
+        }
         stage.getScene().setRoot(gameShell(stage, mode));
     }
 

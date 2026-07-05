@@ -1,8 +1,8 @@
 package edu.bupt.jieqi.gui;
 
 import edu.bupt.jieqi.ai.Agent;
-import edu.bupt.jieqi.ai.ExpectiminimaxAgent;
-import edu.bupt.jieqi.ai.MaterialEvaluator;
+import edu.bupt.jieqi.ai.GreedyAgent;
+import edu.bupt.jieqi.ai.RandomAgent;
 import edu.bupt.jieqi.ai.SearchBudget;
 import edu.bupt.jieqi.model.Color;
 import edu.bupt.jieqi.model.GameState;
@@ -13,7 +13,6 @@ import edu.bupt.jieqi.model.Position;
 import edu.bupt.jieqi.rules.ApplyResult;
 import edu.bupt.jieqi.rules.GameEngine;
 import edu.bupt.jieqi.rules.GameEvent;
-import edu.bupt.jieqi.rules.MoveError;
 import edu.bupt.jieqi.rules.StandardGameEngine;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,25 +20,26 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public final class LocalHumanVsAiGame {
-    // 真人对局优先保证响应速度；搜索器会在被将或残局时自行临时加深。
+public final class LocalAiVsAiGame {
     private static final SearchBudget AI_BUDGET =
-            new SearchBudget(Duration.ofMillis(700), 2);
+            new SearchBudget(Duration.ofSeconds(2), 1);
 
     private final GameEngine engine;
-    private final Agent ai;
+    private final Agent redAi;
+    private final Agent blackAi;
     private final List<String> moveRecords = new ArrayList<>();
     private GameState state;
     private Move lastMove;
     private Color lastMover;
 
-    public LocalHumanVsAiGame() {
-        this(new StandardGameEngine(), new ExpectiminimaxAgent(new MaterialEvaluator()));
+    public LocalAiVsAiGame() {
+        this(new StandardGameEngine(), new GreedyAgent(), new RandomAgent());
     }
 
-    public LocalHumanVsAiGame(GameEngine engine, Agent ai) {
+    public LocalAiVsAiGame(GameEngine engine, Agent redAi, Agent blackAi) {
         this.engine = Objects.requireNonNull(engine);
-        this.ai = Objects.requireNonNull(ai);
+        this.redAi = Objects.requireNonNull(redAi);
+        this.blackAi = Objects.requireNonNull(blackAi);
         this.state = GameState.initial();
     }
 
@@ -47,54 +47,12 @@ public final class LocalHumanVsAiGame {
         return state;
     }
 
-    public List<Move> legalHumanMoves() {
-        if (state.status() != GameStatus.PLAYING || state.currentTurn() != Color.RED) {
-            return List.of();
-        }
-        return engine.legalMoves(state);
+    public String redAiName() {
+        return redAi.name();
     }
 
-    public ApplyResult submitHumanMove(Move move) {
-        if (state.currentTurn() != Color.RED) {
-            return ApplyResult.rejected(
-                    state, MoveError.NOT_YOUR_TURN, "现在不是红方回合");
-        }
-        return applyAndRecord(move, "红方");
-    }
-
-    public Optional<ApplyResult> performAiMove() {
-        if (state.status() != GameStatus.PLAYING || state.currentTurn() != Color.BLACK) {
-            return Optional.empty();
-        }
-
-        List<Move> legalMoves = engine.legalMoves(state);
-        if (legalMoves.isEmpty()) {
-            state = withStatus(state, GameStatus.RED_WIN);
-            moveRecords.add("黑方没有合法走法，红方获胜");
-            return Optional.empty();
-        }
-
-        PlayerView view = PlayerView.from(state, Color.BLACK, legalMoves);
-        Move selected = ai.chooseMove(view, AI_BUDGET);
-        ApplyResult result = applyAndRecord(selected, "黑方");
-        if (!result.validation().valid()) {
-            throw new IllegalStateException("人工智能提交了非法走法");
-        }
-        return Optional.of(result);
-    }
-
-    public void resignHuman() {
-        if (state.status() == GameStatus.PLAYING) {
-            state = withStatus(state, GameStatus.BLACK_WIN);
-            moveRecords.add("红方认输，黑方获胜");
-        }
-    }
-
-    public void restart() {
-        state = GameState.initial();
-        moveRecords.clear();
-        lastMove = null;
-        lastMover = null;
+    public String blackAiName() {
+        return blackAi.name();
     }
 
     public List<String> moveRecords() {
@@ -109,24 +67,54 @@ public final class LocalHumanVsAiGame {
         return Optional.ofNullable(lastMover);
     }
 
-    Agent ai() {
-        return ai;
-    }
-
     public boolean isInCheck(Color color) {
         return state.status() == GameStatus.PLAYING
                 && engine.isInCheck(state, color);
     }
 
-    private ApplyResult applyAndRecord(Move move, String side) {
+    public void restart() {
+        state = GameState.initial();
+        moveRecords.clear();
+        lastMove = null;
+        lastMover = null;
+    }
+
+    public Optional<ApplyResult> performNextMove() {
+        if (state.status() != GameStatus.PLAYING) {
+            return Optional.empty();
+        }
+
+        List<Move> legalMoves = engine.legalMoves(state);
+        if (legalMoves.isEmpty()) {
+            GameStatus result = state.currentTurn() == Color.RED
+                    ? GameStatus.BLACK_WIN
+                    : GameStatus.RED_WIN;
+            Color stuckSide = state.currentTurn();
+            state = withStatus(state, result);
+            moveRecords.add(colorText(stuckSide) + "没有合法走法，"
+                    + colorText(stuckSide.opposite()) + "获胜");
+            return Optional.empty();
+        }
+
         Color mover = state.currentTurn();
+        Agent currentAgent = mover == Color.RED ? redAi : blackAi;
+        PlayerView view = PlayerView.from(state, mover, legalMoves);
+        Move selected = currentAgent.chooseMove(view, AI_BUDGET);
+        ApplyResult result = applyAndRecord(selected, mover, currentAgent.name());
+        if (!result.validation().valid()) {
+            throw new IllegalStateException("人工智能提交了非法走法");
+        }
+        return Optional.of(result);
+    }
+
+    private ApplyResult applyAndRecord(Move move, Color mover, String agentName) {
         ApplyResult result = engine.apply(state, move);
         if (result.validation().valid()) {
             state = result.state();
             lastMove = move;
             lastMover = mover;
-            StringBuilder record = new StringBuilder(side)
-                    .append("：")
+            StringBuilder record = new StringBuilder(colorText(mover))
+                    .append("（").append(agentName).append("）：")
                     .append(positionText(move.source()))
                     .append(" → ")
                     .append(positionText(move.destination()));
@@ -135,7 +123,7 @@ public final class LocalHumanVsAiGame {
                     .map(GameEvent.PieceRevealed.class::cast)
                     .findFirst()
                     .ifPresent(event -> record.append("，翻出")
-                            .append(pieceName(event.type(), mover)));
+                            .append(LocalHumanVsAiGame.pieceName(event.type(), mover)));
             moveRecords.add(record.toString());
         }
         return result;
@@ -164,7 +152,7 @@ public final class LocalHumanVsAiGame {
         return (position.file() + 1) + "列" + (position.rank() + 1) + "行";
     }
 
-    static String pieceName(edu.bupt.jieqi.model.PieceType type, Color color) {
-        return PieceTextFormatter.format(edu.bupt.jieqi.model.Piece.visible(color, type));
+    private String colorText(Color color) {
+        return color == Color.RED ? "红方" : "黑方";
     }
 }

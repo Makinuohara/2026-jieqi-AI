@@ -21,11 +21,13 @@ class HumanVsAiLayoutTest {
 
     @Test
     void moveRecordsUseWrappingListCells() throws IOException {
-        String source = Files.readString(
-                Path.of("src/main/java/edu/bupt/jieqi/gui/HumanVsAiView.java"),
-                StandardCharsets.UTF_8);
+        for (String file : new String[] { "HumanVsAiView.java", "LocalAiVsAiView.java" }) {
+            String source = Files.readString(
+                    Path.of("src/main/java/edu/bupt/jieqi/gui/" + file),
+                    StandardCharsets.UTF_8);
 
-        assertTrue(source.contains("setWrapText(true)"), "走法记录必须支持自动换行");
-        assertTrue(source.contains("setCellFactory"), "走法记录必须使用自定义列表单元格");
+            assertTrue(source.contains("setWrapText(true)"), "走法记录必须支持自动换行：" + file);
+            assertTrue(source.contains("setCellFactory"), "走法记录必须使用自定义列表单元格：" + file);
+        }
     }
 }
