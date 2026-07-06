@@ -1,7 +1,9 @@
 package edu.bupt.jieqi.gui;
 
 import edu.bupt.jieqi.ai.Agent;
+import edu.bupt.jieqi.ai.ExpectiminimaxAgent;
 import edu.bupt.jieqi.ai.GreedyAgent;
+import edu.bupt.jieqi.ai.MaterialEvaluator;
 import edu.bupt.jieqi.ai.RandomAgent;
 import edu.bupt.jieqi.ai.SearchBudget;
 import edu.bupt.jieqi.model.Color;
@@ -33,7 +35,11 @@ public final class LocalAiVsAiGame {
     private Color lastMover;
 
     public LocalAiVsAiGame() {
-        this(new StandardGameEngine(), new GreedyAgent(), new RandomAgent());
+        this(AiMode.GREEDY.createAgent(), AiMode.RANDOM.createAgent());
+    }
+
+    public LocalAiVsAiGame(Agent redAi, Agent blackAi) {
+        this(new StandardGameEngine(), redAi, blackAi);
     }
 
     public LocalAiVsAiGame(GameEngine engine, Agent redAi, Agent blackAi) {
@@ -154,5 +160,30 @@ public final class LocalAiVsAiGame {
 
     private String colorText(Color color) {
         return color == Color.RED ? "红方" : "黑方";
+    }
+
+    enum AiMode {
+        RANDOM("随机 AI"),
+        GREEDY("贪心 AI"),
+        EXPECTIMINIMAX("搜索 AI");
+
+        private final String label;
+
+        AiMode(String label) {
+            this.label = label;
+        }
+
+        Agent createAgent() {
+            return switch (this) {
+                case RANDOM -> new RandomAgent();
+                case GREEDY -> new GreedyAgent();
+                case EXPECTIMINIMAX -> new ExpectiminimaxAgent(new MaterialEvaluator());
+            };
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 }

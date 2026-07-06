@@ -57,4 +57,20 @@ class LocalAiVsAiGameTest {
         assertEquals(Color.RED, game.state().currentTurn());
         assertTrue(game.moveRecords().isEmpty());
     }
+
+    @Test
+    void battleCanUseSelectedAiModesForBothSides() {
+        LocalAiVsAiGame game = new LocalAiVsAiGame(
+                LocalAiVsAiGame.AiMode.RANDOM.createAgent(),
+                LocalAiVsAiGame.AiMode.GREEDY.createAgent());
+
+        assertEquals("Random", game.redAiName());
+        assertEquals("Greedy", game.blackAiName());
+
+        assertTrue(game.performNextMove().isPresent());
+        assertTrue(game.performNextMove().isPresent());
+
+        assertTrue(game.moveRecords().get(0).contains("Random"));
+        assertTrue(game.moveRecords().get(1).contains("Greedy"));
+    }
 }

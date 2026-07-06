@@ -23,7 +23,7 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 final class LocalAiVsAiView extends BorderPane {
-    private final LocalAiVsAiGame game = new LocalAiVsAiGame();
+    private LocalAiVsAiGame game = new LocalAiVsAiGame();
     private final Button[][] squares = new Button[9][10];
     private final Label turnLabel = new Label();
     private final Label statusLabel = new Label();
@@ -31,6 +31,8 @@ final class LocalAiVsAiView extends BorderPane {
     private final ListView<String> moveList = new ListView<>();
     private final Button pauseButton = new Button("暂停");
     private final Button stepButton = new Button("单步");
+    private final ComboBox<LocalAiVsAiGame.AiMode> redAiBox = new ComboBox<>();
+    private final ComboBox<LocalAiVsAiGame.AiMode> blackAiBox = new ComboBox<>();
     private final ComboBox<String> speedBox = new ComboBox<>();
     private Timeline nextMoveDelay;
     private boolean aiThinking;
@@ -64,10 +66,18 @@ final class LocalAiVsAiView extends BorderPane {
     }
 
     private VBox informationPanel() {
-        Label red = new Label("红方：" + game.redAiName());
-        Label black = new Label("黑方：" + game.blackAiName());
         Label help = new Label("双方人工智能会自动轮流走子，可暂停、继续或单步观察。");
         help.setWrapText(true);
+
+        redAiBox.getItems().addAll(LocalAiVsAiGame.AiMode.values());
+        redAiBox.setValue(LocalAiVsAiGame.AiMode.GREEDY);
+        redAiBox.setMaxWidth(Double.MAX_VALUE);
+        redAiBox.setOnAction(event -> restartWithSelectedAgents());
+
+        blackAiBox.getItems().addAll(LocalAiVsAiGame.AiMode.values());
+        blackAiBox.setValue(LocalAiVsAiGame.AiMode.RANDOM);
+        blackAiBox.setMaxWidth(Double.MAX_VALUE);
+        blackAiBox.setOnAction(event -> restartWithSelectedAgents());
 
         speedBox.getItems().addAll("快速", "正常", "慢速");
         speedBox.setValue("正常");
@@ -75,8 +85,10 @@ final class LocalAiVsAiView extends BorderPane {
         checkStatusLabel.setWrapText(true);
 
         VBox panel = new VBox(12,
-                red,
-                black,
+                new Label("红方 AI"),
+                redAiBox,
+                new Label("黑方 AI"),
+                blackAiBox,
                 new Label("播放速度"),
                 speedBox,
                 turnLabel,
@@ -139,6 +151,20 @@ final class LocalAiVsAiView extends BorderPane {
         cell.setWrapText(true);
         cell.prefWidthProperty().bind(moveList.widthProperty().subtract(24));
         return cell;
+    }
+
+    private void restartWithSelectedAgents() {
+        if (redAiBox.getValue() == null || blackAiBox.getValue() == null) {
+            return;
+        }
+        cancelScheduledMove();
+        game = new LocalAiVsAiGame(
+                redAiBox.getValue().createAgent(),
+                blackAiBox.getValue().createAgent());
+        aiThinking = false;
+        autoRunning = true;
+        refresh();
+        scheduleNextMove();
     }
 
     private void toggleAutoPlay() {
@@ -263,6 +289,8 @@ final class LocalAiVsAiView extends BorderPane {
         pauseButton.setText(autoRunning ? "暂停" : "继续");
         pauseButton.setDisable(aiThinking || game.state().status() != GameStatus.PLAYING);
         stepButton.setDisable(aiThinking || game.state().status() != GameStatus.PLAYING);
+        redAiBox.setDisable(aiThinking);
+        blackAiBox.setDisable(aiThinking);
         speedBox.setDisable(aiThinking);
     }
 
