@@ -114,6 +114,17 @@ class StandardGameEngineTest {
     }
 
     @Test
+    void hiddenGuardMustStayInPalace() {
+        GameState state = state(Color.RED,
+                Map.entry(pos("f2"), Piece.hidden(Color.RED, PieceType.GUARD)),
+                piece("e9", Color.BLACK, PieceType.KING));
+
+        assertTrue(engine.legalMoves(state).contains(move("f2", "e1")));
+        assertFalse(engine.legalMoves(state).contains(move("f2", "g3")));
+        assertFalse(engine.apply(state, move("f2", "g3")).validation().valid());
+    }
+
+    @Test
     void kingStaysInPalaceAndCannotExposeFacingKings() {
         GameState state = state(Color.RED,
                 piece("e0", Color.RED, PieceType.KING),

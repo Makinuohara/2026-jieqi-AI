@@ -237,7 +237,7 @@ public final class StandardGameEngine implements GameEngine {
             case CANNON -> isCannon(board, source, destination, target);
             case PAWN -> isPawn(piece.owner(), source, dx, dy);
             case KING -> isKing(piece.owner(), destination, dx, dy);
-            case GUARD -> Math.abs(dx) == 1 && Math.abs(dy) == 1;
+            case GUARD -> isGuard(piece, destination, dx, dy);
             case BISHOP -> isBishop(board, source, dx, dy);
         };
     }
@@ -277,6 +277,17 @@ public final class StandardGameEngine implements GameEngine {
         if (Math.abs(dx) + Math.abs(dy) != 1) {
             return false;
         }
+        return isInPalace(owner, destination);
+    }
+
+    private boolean isGuard(Piece piece, Position destination, int dx, int dy) {
+        if (Math.abs(dx) != 1 || Math.abs(dy) != 1) {
+            return false;
+        }
+        return piece.visible() || isInPalace(piece.owner(), destination);
+    }
+
+    private boolean isInPalace(Color owner, Position destination) {
         int minimumRank = owner == Color.RED ? 0 : 7;
         int maximumRank = owner == Color.RED ? 2 : 9;
         return destination.file() >= 3
