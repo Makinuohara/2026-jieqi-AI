@@ -28,6 +28,7 @@ class JieqiApplicationTextTest {
                 "红方：未连接",
                 "黑方：未连接",
                 "走法记录",
+                "开始",
                 "暂停",
                 "单步",
                 "认输",

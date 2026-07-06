@@ -36,7 +36,8 @@ final class LocalAiVsAiView extends BorderPane {
     private final ComboBox<String> speedBox = new ComboBox<>();
     private Timeline nextMoveDelay;
     private boolean aiThinking;
-    private boolean autoRunning = true;
+    private boolean autoRunning;
+    private boolean battleStarted;
 
     LocalAiVsAiView(Runnable backAction) {
         setPadding(new Insets(18));
@@ -48,7 +49,6 @@ final class LocalAiVsAiView extends BorderPane {
         getStylesheets().add(
                 LocalAiVsAiView.class.getResource("/edu/bupt/jieqi/gui/app.css").toExternalForm());
         refresh();
-        scheduleNextMove();
     }
 
     private HBox header(Runnable backAction) {
@@ -127,9 +127,9 @@ final class LocalAiVsAiView extends BorderPane {
             cancelScheduledMove();
             game.restart();
             aiThinking = false;
-            autoRunning = true;
+            autoRunning = false;
+            battleStarted = false;
             refresh();
-            scheduleNextMove();
         });
 
         VBox panel = new VBox(10, new Label("走法记录"), moveList, pauseButton, stepButton, restart);
@@ -162,9 +162,9 @@ final class LocalAiVsAiView extends BorderPane {
                 redAiBox.getValue().createAgent(),
                 blackAiBox.getValue().createAgent());
         aiThinking = false;
-        autoRunning = true;
+        autoRunning = false;
+        battleStarted = false;
         refresh();
-        scheduleNextMove();
     }
 
     private void toggleAutoPlay() {
@@ -172,6 +172,9 @@ final class LocalAiVsAiView extends BorderPane {
             return;
         }
         autoRunning = !autoRunning;
+        if (autoRunning) {
+            battleStarted = true;
+        }
         cancelScheduledMove();
         refresh();
         if (autoRunning) {
@@ -286,11 +289,12 @@ final class LocalAiVsAiView extends BorderPane {
             moveList.scrollTo(moveList.getItems().size() - 1);
         }
 
-        pauseButton.setText(autoRunning ? "暂停" : "继续");
+        pauseButton.setText(!battleStarted ? "开始" : (autoRunning ? "暂停" : "继续"));
         pauseButton.setDisable(aiThinking || game.state().status() != GameStatus.PLAYING);
-        stepButton.setDisable(aiThinking || game.state().status() != GameStatus.PLAYING);
-        redAiBox.setDisable(aiThinking);
-        blackAiBox.setDisable(aiThinking);
+        stepButton.setDisable(aiThinking || autoRunning || !battleStarted
+                || game.state().status() != GameStatus.PLAYING);
+        redAiBox.setDisable(aiThinking || autoRunning);
+        blackAiBox.setDisable(aiThinking || autoRunning);
         speedBox.setDisable(aiThinking);
     }
 
