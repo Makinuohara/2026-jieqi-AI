@@ -4,8 +4,10 @@ import edu.bupt.jieqi.ai.SearchBudget;
 import edu.bupt.jieqi.model.GameStatus;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public final class LocalAiVsAiExperiment {
     private static final int DEFAULT_GAMES_PER_MATCHUP = 3;
@@ -20,6 +22,11 @@ public final class LocalAiVsAiExperiment {
     }
 
     public static String run(Config config) {
+        Map<LocalAiVsAiGame.AiMode, OverallStats> overallStats = new EnumMap<>(LocalAiVsAiGame.AiMode.class);
+        for (LocalAiVsAiGame.AiMode mode : config.modes()) {
+            overallStats.put(mode, new OverallStats());
+        }
+
         StringBuilder report = new StringBuilder();
         report.append("本地 AI 对 AI 批量实验\n")
                 .append("每组局数：").append(config.gamesPerMatchup())
@@ -31,6 +38,8 @@ public final class LocalAiVsAiExperiment {
         for (LocalAiVsAiGame.AiMode redMode : config.modes()) {
             for (LocalAiVsAiGame.AiMode blackMode : config.modes()) {
                 MatchupStats stats = runMatchup(redMode, blackMode, config);
+                overallStats.get(redMode).recordAsRed(stats);
+                overallStats.get(blackMode).recordAsBlack(stats);
                 report.append(String.format(Locale.ROOT,
                         "%-14s %-14s %6.1f %6.1f %6.1f %6d %8.1f %7.2fs %8d%n",
                         redMode,
@@ -44,7 +53,43 @@ public final class LocalAiVsAiExperiment {
                         stats.illegalMoves()));
             }
         }
+        appendFinalResult(report, overallStats);
         return report.toString();
+    }
+
+    private static void appendFinalResult(
+            StringBuilder report,
+            Map<LocalAiVsAiGame.AiMode, OverallStats> overallStats) {
+        LocalAiVsAiGame.AiMode winner = overallStats.entrySet().stream()
+                .max((left, right) -> left.getValue().compareTo(right.getValue()))
+                .map(Map.Entry::getKey)
+                .orElseThrow();
+
+        report.append("\n最终对战结果\n")
+                .append("综合第一：").append(winner)
+                .append("（胜率 ")
+                .append(String.format(Locale.ROOT, "%.1f", overallStats.get(winner).winRate()))
+                .append("%）\n\n")
+                .append(String.format("%-14s %6s %6s %6s %6s %6s %6s %8s %8s %8s%n",
+                        "AI", "总局", "胜", "和", "负", "异常", "非法", "胜率", "未败率", "平均耗时"));
+
+        overallStats.entrySet().stream()
+                .sorted((left, right) -> right.getValue().compareTo(left.getValue()))
+                .forEach(entry -> {
+                    OverallStats stats = entry.getValue();
+                    report.append(String.format(Locale.ROOT,
+                            "%-14s %6d %6d %6d %6d %6d %6d %7.1f%% %7.1f%% %7.2fs%n",
+                            entry.getKey(),
+                            stats.games(),
+                            stats.wins(),
+                            stats.draws(),
+                            stats.losses(),
+                            stats.exceptions(),
+                            stats.illegalMoves(),
+                            stats.winRate(),
+                            stats.nonLossRate(),
+                            stats.averageSeconds()));
+                });
     }
 
     private static MatchupStats runMatchup(
@@ -179,6 +224,91 @@ public final class LocalAiVsAiExperiment {
 
         double averageSeconds() {
             return games == 0 ? 0.0 : totalNanos / 1_000_000_000.0 / games;
+        }
+    }
+
+    private static final class OverallStats {
+        private int games;
+        private int wins;
+        private int draws;
+        private int losses;
+        private int exceptions;
+        private int illegalMoves;
+        private int totalHalfMoves;
+        private long totalNanos;
+
+        void recordAsRed(MatchupStats stats) {
+            games += stats.games;
+            wins += stats.redWins;
+            draws += stats.draws;
+            losses += stats.blackWins;
+            exceptions += stats.exceptions;
+            illegalMoves += stats.illegalMoves;
+            totalHalfMoves += stats.totalHalfMoves;
+            totalNanos += stats.totalNanos;
+        }
+
+        void recordAsBlack(MatchupStats stats) {
+            games += stats.games;
+            wins += stats.blackWins;
+            draws += stats.draws;
+            losses += stats.redWins;
+            exceptions += stats.exceptions;
+            illegalMoves += stats.illegalMoves;
+            totalHalfMoves += stats.totalHalfMoves;
+            totalNanos += stats.totalNanos;
+        }
+
+        int games() {
+            return games;
+        }
+
+        int wins() {
+            return wins;
+        }
+
+        int draws() {
+            return draws;
+        }
+
+        int losses() {
+            return losses;
+        }
+
+        int exceptions() {
+            return exceptions;
+        }
+
+        int illegalMoves() {
+            return illegalMoves;
+        }
+
+        double winRate() {
+            return games == 0 ? 0.0 : wins * 100.0 / games;
+        }
+
+        double nonLossRate() {
+            return games == 0 ? 0.0 : (wins + draws) * 100.0 / games;
+        }
+
+        double averageSeconds() {
+            return games == 0 ? 0.0 : totalNanos / 1_000_000_000.0 / games;
+        }
+
+        int compareTo(OverallStats other) {
+            int byWinRate = Double.compare(winRate(), other.winRate());
+            if (byWinRate != 0) {
+                return byWinRate;
+            }
+            int byNonLossRate = Double.compare(nonLossRate(), other.nonLossRate());
+            if (byNonLossRate != 0) {
+                return byNonLossRate;
+            }
+            int byIllegalMoves = Integer.compare(other.illegalMoves, illegalMoves);
+            if (byIllegalMoves != 0) {
+                return byIllegalMoves;
+            }
+            return Integer.compare(other.exceptions, exceptions);
         }
     }
 }

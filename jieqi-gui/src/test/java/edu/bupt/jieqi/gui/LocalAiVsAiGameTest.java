@@ -88,5 +88,8 @@ class LocalAiVsAiGameTest {
         assertTrue(report.contains("平均步数"));
         assertTrue(report.contains("非法"));
         assertTrue(report.contains("随机 AI"));
+        assertTrue(report.contains("最终对战结果"));
+        assertTrue(report.contains("综合第一"));
+        assertTrue(report.contains("未败率"));
     }
 }
