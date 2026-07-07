@@ -2,6 +2,21 @@
 
 北京邮电大学 2026 Java 面向对象大作业“揭棋”的多人协作框架。
 
+## 项目架构
+
+本项目是七模块 Maven 工程：
+
+- `jieqi-model`：棋盘、棋子、走法、对局状态和玩家视图模型。
+- `jieqi-rules`：规则引擎、合法性判断、翻子事件和终局裁决。
+- `jieqi-ai`：统一 AI 接口、随机 AI、贪心 AI 和 Expectiminimax 搜索 AI。
+- `jieqi-protocol`：联网 JSON 消息、协议编解码和 1 KiB 文本帧限制。
+- `jieqi-server`：WebSocket 对弈服务器。
+- `jieqi-gui`：JavaFX 本地界面、本地 AI 对战、棋谱保存/复盘和批量 AI 实验。
+- `jieqi-app`：统一启动入口，负责转发 GUI、服务器和批量实验启动参数。
+
+根目录保留 Maven Wrapper、Docker 配置、作业原始资料和一键启动脚本；开发说明、协议约定、
+任务拆分和迭代记录放在 `docs/` 下。
+
 ## 项目目标
 
 项目最终计划支持：
@@ -19,7 +34,7 @@
 2. `揭棋规则与协议待确认问题的老师解答.txt`
 3. `2026大作业公共接口.docx`
 4. `2026大作业——揭棋.docx`
-5. Unveil v3.1 PDF 中不冲突的参考内容
+5. `Unvei接口文档- 张恒基.pdf` 中不冲突的参考内容
 
 ## 环境
 
@@ -81,7 +96,7 @@
 - 对大于或等于 8192 字节的文本帧使用关闭码 `1009` 拒绝。
 - 提供服务器 Dockerfile 和 Docker Compose 配置。
 - 当前共有 89 项自动化测试，覆盖模型、规则、AI、协议、服务器以及本地和联网 GUI 对局，
-  可以通过 `.\mvnw.cmd test` 运行。
+  可以通过 `./mvnw test` 运行。
 
 ## 需要完善
 
@@ -98,7 +113,7 @@
 
 ## 本地真人对搜索人工智能
 
-运行：
+Windows 一键运行：
 
 ```powershell
 .\run-gui.cmd
@@ -124,7 +139,7 @@ macOS 一键运行：
 
 ## 本地人工智能对弈
 
-运行：
+Windows 一键运行：
 
 ```powershell
 .\run-gui.cmd
@@ -169,8 +184,16 @@ macOS 一键运行：
 
 先在作为服务器的一台电脑上启动对弈服务器：
 
+Windows：
+
 ```powershell
 .\run-server.cmd
+```
+
+macOS：
+
+```bash
+./run-server.sh
 ```
 
 服务器默认监听：
@@ -184,8 +207,16 @@ ws://localhost:8887
 1. 保持服务器窗口运行。
 2. 分别打开两个终端，各执行一次：
 
+Windows：
+
 ```powershell
 .\run-gui.cmd
+```
+
+macOS：
+
+```bash
+./run-gui.sh
 ```
 
 3. 两个 GUI 都进入“联网对弈与人工智能比赛”。
@@ -196,11 +227,19 @@ ws://localhost:8887
 
 不同电脑联机时：
 
-1. 服务器电脑先运行 `.\run-server.cmd`。
-2. 在服务器电脑上查看局域网 IP：
+1. 服务器电脑先运行对应系统的服务器启动脚本。
+2. 在服务器电脑上查看局域网 IP。
+
+Windows：
 
 ```powershell
 ipconfig
+```
+
+macOS：
+
+```bash
+ipconfig getifaddr en0
 ```
 
 3. 其他电脑的 GUI 服务器地址填写：
@@ -243,7 +282,7 @@ macOS：
 ./mvnw package
 ./mvnw install
 ./run-gui.sh
-java -jar ./jieqi-server/target/jieqi-server-0.1.0-SNAPSHOT-all.jar
+./run-server.sh
 docker compose up --build
 ```
 
@@ -251,7 +290,7 @@ docker compose up --build
 `jieqi-ai` 或 `jieqi-protocol` 无法解析的错误。Windows 推荐使用 `.\run-gui.cmd`，
 macOS 推荐使用 `./run-gui.sh`；脚本会先构建并安装 GUI 依赖，再启动 JavaFX。
 
-也可以手动执行：
+Windows 手动执行：
 
 ```powershell
 .\mvnw.cmd -pl jieqi-gui -am install -DskipTests

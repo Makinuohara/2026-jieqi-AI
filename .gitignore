@@ -12,3 +12,4 @@ records/
 .claude/settings.local.json
 .DS_Store
 run-gui.sh
+run-server.sh
