@@ -49,7 +49,8 @@
 - 支持同时检测双方将帅是否受攻击，并显示中文将军提示。
 - 实现连续 6 次长将、长捉及兵卒例外（长捉判和）规则。
 - 建立 `Agent.chooseMove` 统一 AI 接口。
-- 提供随机 AI、保帅型贪心 AI 和 Expectiminimax 搜索 AI，其中图形界面当前只接入 Expectiminimax 搜索 AI。
+- 提供随机 AI、保帅型贪心 AI 和 Expectiminimax 搜索 AI；真人对 AI 模式使用
+  Expectiminimax 搜索 AI，本地 AI 对 AI 模式可分别选择红黑双方 AI。
 - 建立可替换局面评估函数接口，并实现完整贪心评估、暗子期望价值、机动性、
   吃子压力、位置奖励和将帅安全评分。
 - 实现 Expectiminimax 概率搜索，支持暗子剩余池推断、翻子概率节点、Alpha-Beta 剪枝、
@@ -59,11 +60,12 @@
   但不会读取暗子的真实隐藏身份。
 - 提供中文 JavaFX 首屏和四种模式入口。
 - “真人对人工智能”已经接通真实棋盘，真人执红，搜索 AI 执黑。
-- “本地人工智能对弈”已经接通真实棋盘，当前默认由红方贪心 AI 对战黑方随机 AI。
+- “本地人工智能对弈”已经接通真实棋盘，默认由红方贪心 AI 对战黑方随机 AI，
+  并支持分别选择红黑双方使用随机、贪心或搜索 AI。
 - 支持选子、合法落点高亮、走子、AI 后台回应、认输和重新开始。
 - 真人对 AI 模式使用响应优先的搜索预算，普通局面保持较快响应，被将、能立即取胜或
   残局时自动临时加深搜索。
-- 支持本地 AI 对 AI 的自动对弈、暂停、继续、单步和速度调整。
+- 支持本地 AI 对 AI 的开始、暂停、继续、单步和速度调整。
 - GUI 棋盘已改为接近传统象棋盘的绘制方式，并统一使用圆形棋子样式。
 - 支持区分空位落点提示、吃子落点提示和上一步走子的起点/终点高亮。
 - 左侧信息区会持续显示当前将军状态；被将军一方的将/帅会在棋盘上高亮提示。
@@ -73,7 +75,7 @@
 - 支持 `ping`、临时登录和未知可选消息兼容。
 - 对大于或等于 1024 字节的文本帧使用关闭码 `1009` 拒绝。
 - 提供服务器 Dockerfile 和 Docker Compose 配置。
-- 当前共有 80 项自动化测试，覆盖模型、规则、AI、协议、服务器以及本地 GUI 对局，
+- 当前共有 82 项自动化测试，覆盖模型、规则、AI、协议、服务器以及本地 GUI 对局，
   可以通过 `.\mvnw.cmd test` 运行。
 
 ## 需要完善
@@ -98,6 +100,13 @@
 .\run-gui.cmd
 ```
 
+macOS 运行：
+
+```bash
+./mvnw -pl jieqi-gui -am install -DskipTests
+./mvnw -f jieqi-gui/pom.xml javafx:run
+```
+
 进入“真人对人工智能”后：
 
 1. 真人执红先行。
@@ -117,15 +126,25 @@
 .\run-gui.cmd
 ```
 
+macOS 运行：
+
+```bash
+./mvnw -pl jieqi-gui -am install -DskipTests
+./mvnw -f jieqi-gui/pom.xml javafx:run
+```
+
 进入“本地人工智能对弈”后：
 
 1. 红方默认使用贪心 AI，黑方默认使用随机 AI。
-2. 对局会自动开始并持续推进。
-3. 可以使用“暂停 / 继续”“单步”“重新开始”观察对局过程。
-4. 可以通过“播放速度”切换自动对弈节奏。
-5. 左侧会持续显示当前将军状态，棋盘会保留上一步走子的高亮提示。
+2. 可以分别选择红方和黑方使用随机 AI、贪心 AI 或搜索 AI。
+3. 点击“开始”后，对局才会自动推进。
+4. 可以使用“暂停 / 继续”“单步”“重新开始”观察对局过程。
+5. 可以通过“播放速度”切换自动对弈节奏。
+6. 左侧会持续显示当前将军状态，棋盘会保留上一步走子的高亮提示。
 
 ## 常用命令
+
+Windows：
 
 ```powershell
 .\mvnw.cmd test
@@ -136,14 +155,34 @@ java -jar .\jieqi-server\target\jieqi-server-0.1.0-SNAPSHOT-all.jar
 docker compose up --build
 ```
 
+macOS：
+
+```bash
+./mvnw test
+./mvnw package
+./mvnw install
+./mvnw -pl jieqi-gui -am install -DskipTests
+./mvnw -f jieqi-gui/pom.xml javafx:run
+java -jar ./jieqi-server/target/jieqi-server-0.1.0-SNAPSHOT-all.jar
+docker compose up --build
+```
+
 首次直接运行 `jieqi-gui` 子模块时，如果依赖模块尚未安装到本机 Maven 仓库，会出现
-`jieqi-ai` 或 `jieqi-protocol` 无法解析的错误。推荐使用 `.\run-gui.cmd`，脚本会先构建并安装 GUI 依赖，再启动 JavaFX。
+`jieqi-ai` 或 `jieqi-protocol` 无法解析的错误。Windows 推荐使用 `.\run-gui.cmd`，
+脚本会先构建并安装 GUI 依赖，再启动 JavaFX。
 
 也可以手动执行：
 
 ```powershell
 .\mvnw.cmd -pl jieqi-gui -am install -DskipTests
 .\mvnw.cmd -f .\jieqi-gui\pom.xml javafx:run
+```
+
+macOS 手动执行：
+
+```bash
+./mvnw -pl jieqi-gui -am install -DskipTests
+./mvnw -f jieqi-gui/pom.xml javafx:run
 ```
 
 服务器默认监听 `ws://localhost:8887`。协议文本帧必须小于 1024 字节。
