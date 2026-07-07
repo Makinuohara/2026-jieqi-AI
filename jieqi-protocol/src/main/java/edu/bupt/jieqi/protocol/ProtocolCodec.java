@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 public final class ProtocolCodec {
-    public static final int MAX_FRAME_BYTES = 1024;
+    public static final int MAX_FRAME_BYTES = 8192;
     private final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
 
     public JsonObject parse(String text) {
@@ -37,4 +37,3 @@ public final class ProtocolCodec {
         return json;
     }
 }
-
