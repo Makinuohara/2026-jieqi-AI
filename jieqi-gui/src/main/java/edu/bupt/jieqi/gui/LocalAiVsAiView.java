@@ -31,6 +31,9 @@ final class LocalAiVsAiView extends BorderPane {
     private final ListView<String> moveList = new ListView<>();
     private final Button pauseButton = new Button("暂停");
     private final Button stepButton = new Button("单步");
+    private final Button saveRecordButton = new Button("保存棋谱");
+    private final Button replayButton = new Button("查看复盘");
+    private final Button openRecordButton = new Button("打开棋谱");
     private final ComboBox<LocalAiVsAiGame.AiMode> redAiBox = new ComboBox<>();
     private final ComboBox<LocalAiVsAiGame.AiMode> blackAiBox = new ComboBox<>();
     private final ComboBox<String> speedBox = new ComboBox<>();
@@ -132,7 +135,26 @@ final class LocalAiVsAiView extends BorderPane {
             refresh();
         });
 
-        VBox panel = new VBox(10, new Label("走法记录"), moveList, pauseButton, stepButton, restart);
+        saveRecordButton.setMaxWidth(Double.MAX_VALUE);
+        saveRecordButton.setOnAction(event -> GameRecordDialog.saveCurrent(
+                this, aiBattleModeText(), statusText(), game.moveRecords()));
+
+        replayButton.setMaxWidth(Double.MAX_VALUE);
+        replayButton.setOnAction(event -> GameRecordDialog.showCurrent(
+                this, aiBattleModeText(), statusText(), game.moveRecords()));
+
+        openRecordButton.setMaxWidth(Double.MAX_VALUE);
+        openRecordButton.setOnAction(event -> GameRecordDialog.openSaved(this));
+
+        VBox panel = new VBox(10,
+                new Label("走法记录"),
+                moveList,
+                replayButton,
+                saveRecordButton,
+                openRecordButton,
+                pauseButton,
+                stepButton,
+                restart);
         panel.getStyleClass().add("panel");
         panel.setPrefWidth(320);
         panel.setMinWidth(280);
@@ -277,10 +299,7 @@ final class LocalAiVsAiView extends BorderPane {
         } else {
             turnLabel.setText("当前回合：" + colorText(game.state().currentTurn()));
         }
-        statusLabel.setText(HumanVsAiView.statusText(
-                game.state().status(),
-                game.isInCheck(Color.RED),
-                game.isInCheck(Color.BLACK)));
+        statusLabel.setText(statusText());
         checkStatusLabel.setText(HumanVsAiView.checkStatusText(
                 game.isInCheck(Color.RED),
                 game.isInCheck(Color.BLACK)));
@@ -296,9 +315,24 @@ final class LocalAiVsAiView extends BorderPane {
         redAiBox.setDisable(aiThinking || autoRunning);
         blackAiBox.setDisable(aiThinking || autoRunning);
         speedBox.setDisable(aiThinking);
+        boolean finishedRecordReady = game.state().status() != GameStatus.PLAYING
+                && !game.moveRecords().isEmpty();
+        replayButton.setDisable(!finishedRecordReady);
+        saveRecordButton.setDisable(!finishedRecordReady);
     }
 
     private String colorText(Color color) {
         return color == Color.RED ? "红方" : "黑方";
+    }
+
+    private String statusText() {
+        return HumanVsAiView.statusText(
+                game.state().status(),
+                game.isInCheck(Color.RED),
+                game.isInCheck(Color.BLACK));
+    }
+
+    private String aiBattleModeText() {
+        return "本地人工智能对弈：红方 " + game.redAiName() + "，黑方 " + game.blackAiName();
     }
 }

@@ -66,6 +66,7 @@
 - 真人对 AI 模式使用响应优先的搜索预算，普通局面保持较快响应，被将、能立即取胜或
   残局时自动临时加深搜索。
 - 支持本地 AI 对 AI 的开始、暂停、继续、单步和速度调整。
+- 支持本地对局结束后保存棋谱、查看复盘和打开已保存棋谱。
 - 支持本地 AI 对 AI 批量实验，统计不同 AI 组合的胜率、平均步数、平均耗时、异常局数
   和非法走法局数。
 - GUI 棋盘已改为接近传统象棋盘的绘制方式，并统一使用圆形棋子样式。
@@ -77,7 +78,7 @@
 - 支持 `ping`、临时登录和未知可选消息兼容。
 - 对大于或等于 1024 字节的文本帧使用关闭码 `1009` 拒绝。
 - 提供服务器 Dockerfile 和 Docker Compose 配置。
-- 当前共有 83 项自动化测试，覆盖模型、规则、AI、协议、服务器以及本地 GUI 对局，
+- 当前共有 84 项自动化测试，覆盖模型、规则、AI、协议、服务器以及本地 GUI 对局，
   可以通过 `.\mvnw.cmd test` 运行。
 
 ## 需要完善
@@ -86,7 +87,7 @@
 
 - 服务器匹配、Ready、房间、计时和最终裁决。
 - 合法结果广播、非法走法单独回复和暗子信息脱敏。
-- AI 联网客户端、棋谱保存及复盘。
+- AI 联网客户端。
 - 两个客户端通过服务器完成整局对弈。
 - 跨电脑和跨小组 AI 联调。
 
@@ -102,11 +103,10 @@
 .\run-gui.cmd
 ```
 
-macOS 运行：
+macOS 一键运行：
 
 ```bash
-./mvnw -pl jieqi-gui -am install -DskipTests
-./mvnw -f jieqi-gui/pom.xml javafx:run
+./run-gui.sh
 ```
 
 进入“真人对人工智能”后：
@@ -116,6 +116,7 @@ macOS 运行：
 3. 点击绿色棋位完成走子。
 4. 搜索人工智能会在后台自动走黑方。
 5. 吃掉对方将帅、认输或点击“重新开始”可以结束或重置当前对局。
+6. 对局结束后可以点击“查看复盘”显示完整走法，或点击“保存棋谱”导出文本棋谱。
 
 当前版本允许玩家不应将，但仍禁止走出将帅直接照面的局面。连续 80 个半回合无吃子
 会自动判和；连续 6 次长将、长捉及兵卒例外也已纳入规则引擎。
@@ -128,11 +129,10 @@ macOS 运行：
 .\run-gui.cmd
 ```
 
-macOS 运行：
+macOS 一键运行：
 
 ```bash
-./mvnw -pl jieqi-gui -am install -DskipTests
-./mvnw -f jieqi-gui/pom.xml javafx:run
+./run-gui.sh
 ```
 
 进入“本地人工智能对弈”后：
@@ -143,6 +143,7 @@ macOS 运行：
 4. 可以使用“暂停 / 继续”“单步”“重新开始”观察对局过程。
 5. 可以通过“播放速度”切换自动对弈节奏。
 6. 左侧会持续显示当前将军状态，棋盘会保留上一步走子的高亮提示。
+7. 对局结束后可以点击“查看复盘”显示完整走法，或点击“保存棋谱”导出文本棋谱。
 
 ## 本地 AI 批量实验
 
@@ -182,15 +183,14 @@ macOS：
 ./mvnw test
 ./mvnw package
 ./mvnw install
-./mvnw -pl jieqi-gui -am install -DskipTests
-./mvnw -f jieqi-gui/pom.xml javafx:run
+./run-gui.sh
 java -jar ./jieqi-server/target/jieqi-server-0.1.0-SNAPSHOT-all.jar
 docker compose up --build
 ```
 
 首次直接运行 `jieqi-gui` 子模块时，如果依赖模块尚未安装到本机 Maven 仓库，会出现
 `jieqi-ai` 或 `jieqi-protocol` 无法解析的错误。Windows 推荐使用 `.\run-gui.cmd`，
-脚本会先构建并安装 GUI 依赖，再启动 JavaFX。
+macOS 推荐使用 `./run-gui.sh`；脚本会先构建并安装 GUI 依赖，再启动 JavaFX。
 
 也可以手动执行：
 

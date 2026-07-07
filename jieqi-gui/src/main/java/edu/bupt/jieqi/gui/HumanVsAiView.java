@@ -28,6 +28,9 @@ final class HumanVsAiView extends BorderPane {
     private final Label statusLabel = new Label();
     private final Label checkStatusLabel = new Label();
     private final ListView<String> moveList = new ListView<>();
+    private final Button saveRecordButton = new Button("保存棋谱");
+    private final Button replayButton = new Button("查看复盘");
+    private final Button openRecordButton = new Button("打开棋谱");
     private Position selected;
     private boolean aiThinking;
 
@@ -96,7 +99,25 @@ final class HumanVsAiView extends BorderPane {
             refresh();
         });
 
-        VBox panel = new VBox(10, new Label("走法记录"), moveList, restart, resign);
+        saveRecordButton.setMaxWidth(Double.MAX_VALUE);
+        saveRecordButton.setOnAction(event -> GameRecordDialog.saveCurrent(
+                this, "真人对搜索人工智能", statusText(), game.moveRecords()));
+
+        replayButton.setMaxWidth(Double.MAX_VALUE);
+        replayButton.setOnAction(event -> GameRecordDialog.showCurrent(
+                this, "真人对搜索人工智能", statusText(), game.moveRecords()));
+
+        openRecordButton.setMaxWidth(Double.MAX_VALUE);
+        openRecordButton.setOnAction(event -> GameRecordDialog.openSaved(this));
+
+        VBox panel = new VBox(10,
+                new Label("走法记录"),
+                moveList,
+                replayButton,
+                saveRecordButton,
+                openRecordButton,
+                restart,
+                resign);
         panel.getStyleClass().add("panel");
         panel.setPrefWidth(320);
         panel.setMinWidth(280);
@@ -256,6 +277,10 @@ final class HumanVsAiView extends BorderPane {
         if (!moveList.getItems().isEmpty()) {
             moveList.scrollTo(moveList.getItems().size() - 1);
         }
+        boolean finishedRecordReady = game.state().status() != GameStatus.PLAYING
+                && !game.moveRecords().isEmpty();
+        replayButton.setDisable(!finishedRecordReady);
+        saveRecordButton.setDisable(!finishedRecordReady);
     }
 
     private String colorText(Color color) {
