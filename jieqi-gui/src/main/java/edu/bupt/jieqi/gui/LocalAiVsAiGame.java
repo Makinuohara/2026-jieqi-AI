@@ -23,12 +23,13 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class LocalAiVsAiGame {
-    private static final SearchBudget AI_BUDGET =
+    private static final SearchBudget DEFAULT_AI_BUDGET =
             new SearchBudget(Duration.ofSeconds(2), 1);
 
     private final GameEngine engine;
     private final Agent redAi;
     private final Agent blackAi;
+    private final SearchBudget aiBudget;
     private final List<String> moveRecords = new ArrayList<>();
     private GameState state;
     private Move lastMove;
@@ -42,10 +43,19 @@ public final class LocalAiVsAiGame {
         this(new StandardGameEngine(), redAi, blackAi);
     }
 
+    public LocalAiVsAiGame(Agent redAi, Agent blackAi, SearchBudget aiBudget) {
+        this(new StandardGameEngine(), redAi, blackAi, aiBudget);
+    }
+
     public LocalAiVsAiGame(GameEngine engine, Agent redAi, Agent blackAi) {
+        this(engine, redAi, blackAi, DEFAULT_AI_BUDGET);
+    }
+
+    public LocalAiVsAiGame(GameEngine engine, Agent redAi, Agent blackAi, SearchBudget aiBudget) {
         this.engine = Objects.requireNonNull(engine);
         this.redAi = Objects.requireNonNull(redAi);
         this.blackAi = Objects.requireNonNull(blackAi);
+        this.aiBudget = Objects.requireNonNull(aiBudget);
         this.state = GameState.initial();
     }
 
@@ -105,7 +115,7 @@ public final class LocalAiVsAiGame {
         Color mover = state.currentTurn();
         Agent currentAgent = mover == Color.RED ? redAi : blackAi;
         PlayerView view = PlayerView.from(state, mover, legalMoves);
-        Move selected = currentAgent.chooseMove(view, AI_BUDGET);
+        Move selected = currentAgent.chooseMove(view, aiBudget);
         ApplyResult result = applyAndRecord(selected, mover, currentAgent.name());
         if (!result.validation().valid()) {
             throw new IllegalStateException("人工智能提交了非法走法");

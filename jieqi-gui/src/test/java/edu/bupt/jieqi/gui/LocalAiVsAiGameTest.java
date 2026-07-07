@@ -73,4 +73,23 @@ class LocalAiVsAiGameTest {
         assertTrue(game.moveRecords().get(0).contains("Random"));
         assertTrue(game.moveRecords().get(1).contains("Greedy"));
     }
+
+    @Test
+    void experimentReportIncludesMatchupStatistics() {
+        String report = LocalAiVsAiExperiment.run(new LocalAiVsAiExperiment.Config(
+                1,
+                1,
+                50,
+                java.util.List.of(LocalAiVsAiGame.AiMode.RANDOM)));
+
+        assertTrue(report.contains("本地 AI 对 AI 批量实验"));
+        assertTrue(report.contains("红方AI"));
+        assertTrue(report.contains("黑方AI"));
+        assertTrue(report.contains("平均步数"));
+        assertTrue(report.contains("非法"));
+        assertTrue(report.contains("随机 AI"));
+        assertTrue(report.contains("最终对战结果"));
+        assertTrue(report.contains("综合第一"));
+        assertTrue(report.contains("未败率"));
+    }
 }
