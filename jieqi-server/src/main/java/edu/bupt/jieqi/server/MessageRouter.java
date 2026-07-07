@@ -19,9 +19,6 @@ public final class MessageRouter {
             case "ping" -> Optional.of(codec.toJson(
                     new Messages.Pong(message.get("timestamp").getAsLong())));
             case "Login", "register" -> Optional.of(loginResult(message));
-            case "startMatch", "cancelMatch", "requestFirstHand", "Ready", "move", "Resign" ->
-                    Optional.of(codec.toJson(new Messages.Error(
-                            100, "消息入口已建立，房间和联网对局仍待实现")));
             default -> Optional.empty();
         };
     }

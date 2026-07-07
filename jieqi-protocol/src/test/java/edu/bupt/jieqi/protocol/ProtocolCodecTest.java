@@ -21,9 +21,10 @@ class ProtocolCodecTest {
     }
 
     @Test
-    void rejectsFramesAtOrAboveOneKilobyte() {
-        String oversized = "{\"messageType\":\"x\",\"data\":\"" + "a".repeat(1024) + "\"}";
+    void rejectsFramesAtOrAboveConfiguredLimit() {
+        String oversized = "{\"messageType\":\"x\",\"data\":\""
+                + "a".repeat(ProtocolCodec.MAX_FRAME_BYTES)
+                + "\"}";
         assertThrows(FrameTooLargeException.class, () -> codec.parse(oversized));
     }
 }
-

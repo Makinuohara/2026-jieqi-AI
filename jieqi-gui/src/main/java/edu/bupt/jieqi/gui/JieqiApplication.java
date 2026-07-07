@@ -16,6 +16,8 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public final class JieqiApplication extends Application {
+    private NetworkLobbyView networkLobbyView;
+
     @Override
     public void start(Stage stage) {
         stage.setTitle("揭棋竞技场");
@@ -61,6 +63,14 @@ public final class JieqiApplication extends Application {
         if ("本地人工智能对弈".equals(mode)) {
             stage.getScene().setRoot(new LocalAiVsAiView(
                     () -> stage.getScene().setRoot(home(stage))));
+            return;
+        }
+        if ("联网对弈与人工智能比赛".equals(mode)) {
+            if (networkLobbyView == null) {
+                networkLobbyView = new NetworkLobbyView(
+                        () -> stage.getScene().setRoot(home(stage)));
+            }
+            stage.getScene().setRoot(networkLobbyView);
             return;
         }
         stage.getScene().setRoot(gameShell(stage, mode));
@@ -113,6 +123,13 @@ public final class JieqiApplication extends Application {
 
     public static void launchApp(String[] args) {
         launch(args);
+    }
+
+    @Override
+    public void stop() {
+        if (networkLobbyView != null) {
+            networkLobbyView.shutdown();
+        }
     }
 
     public static void main(String[] args) {
