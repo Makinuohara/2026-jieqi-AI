@@ -60,33 +60,24 @@ public final class ExpectiminimaxAgent implements Agent {
         Color perspective = view.perspective();
         SearchContext context = new SearchContext(deadline);
         int maxDepth = adjustedDepth(view, budget);
-        Move bestMove = null;
-        double bestScore = -Double.MAX_VALUE;
         // 先过滤掉会直接送将帅的走法，再按战术价值排序，提升 Alpha-Beta 剪枝效率。
         List<Move> candidates = orderedMoves(
                 state,
                 SearchSupport.fastSafetyFilteredMoves(state, view.legalMoves(), perspective, engine),
                 perspective);
-
-        for (Move move : candidates) {
-            if (timedOut(deadline)) {
+        Move bestMove = null;
+        boolean completedIteration = false;
+        // 迭代加深先求出浅层稳定解，再在剩余时间里继续深化，避免超时后只能退回贪心。
+        for (int depth = 1; depth <= maxDepth; depth++) {
+            RootSearchResult result = searchRoot(state, perspective, depth, candidates, context);
+            if (result.bestMove() != null && (!completedIteration || result.completed())) {
+                bestMove = result.bestMove();
+            }
+            if (!result.completed()) {
                 break;
             }
-            double score = expectedMoveValue(
-                    state,
-                    move,
-                    perspective,
-                    maxDepth - 1,
-                    -SearchSupport.WIN_SCORE,
-                    SearchSupport.WIN_SCORE,
-                    context);
-            if (Double.isNaN(score)) {
-                break;
-            }
-            if (bestMove == null || score > bestScore) {
-                bestMove = move;
-                bestScore = score;
-            }
+            completedIteration = true;
+            candidates = reorderRootCandidates(candidates, result.scores());
         }
         return bestMove != null ? bestMove : fallback.chooseMove(view, budget);
     }
@@ -174,6 +165,42 @@ public final class ExpectiminimaxAgent implements Agent {
             context.cache().put(key, new CacheEntry(depth, best));
         }
         return best;
+    }
+
+    private RootSearchResult searchRoot(
+            GameState state,
+            Color perspective,
+            int depth,
+            List<Move> candidates,
+            SearchContext context) {
+        Move bestMove = null;
+        double bestScore = -Double.MAX_VALUE;
+        Map<Move, Double> scores = new HashMap<>();
+        boolean completed = true;
+        for (Move move : candidates) {
+            if (timedOut(context.deadline())) {
+                completed = false;
+                break;
+            }
+            double score = expectedMoveValue(
+                    state,
+                    move,
+                    perspective,
+                    depth - 1,
+                    -SearchSupport.WIN_SCORE,
+                    SearchSupport.WIN_SCORE,
+                    context);
+            if (Double.isNaN(score)) {
+                completed = false;
+                break;
+            }
+            scores.put(move, score);
+            if (bestMove == null || score > bestScore) {
+                bestMove = move;
+                bestScore = score;
+            }
+        }
+        return new RootSearchResult(bestMove, scores, completed);
     }
 
     private double expectedMoveValue(
@@ -340,6 +367,14 @@ public final class ExpectiminimaxAgent implements Agent {
                 .toList();
     }
 
+    private List<Move> reorderRootCandidates(List<Move> candidates, Map<Move, Double> scores) {
+        return candidates.stream()
+                .sorted(Comparator.comparingDouble(
+                                (Move move) -> scores.getOrDefault(move, -Double.MAX_VALUE))
+                        .reversed())
+                .toList();
+    }
+
     private double moveOrderingScore(GameState state, Move move, Color perspective) {
         Piece source = state.board().pieceAt(move.source()).orElse(null);
         Piece target = state.board().pieceAt(move.destination()).orElse(null);
@@ -494,5 +529,8 @@ public final class ExpectiminimaxAgent implements Agent {
     }
 
     private record CacheEntry(int depth, double score) {
+    }
+
+    private record RootSearchResult(Move bestMove, Map<Move, Double> scores, boolean completed) {
     }
 }
