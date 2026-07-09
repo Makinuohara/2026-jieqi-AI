@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>揭棋竞技场 — 重新定义揭棋对弈</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♟</text></svg>">
+  <style>
+    :root {
+      --bg-color: #f5f5f7;
+      --card-bg: #ffffff;
+      --text-main: #1d1d1f;
+      --text-sub: #86868b;
+      --accent-blue: #0066cc;
+      --accent-blue-hover: #0077ed;
+      --accent-green: #34c759;
+      --accent-red: #e53e3e;
+      --accent-orange: #f59e0b;
+      --border-color: rgba(0, 0, 0, 0.08);
+      --font-display: 'Outfit', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-body: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, Monaco, monospace;
+      --glass-bg: rgba(255, 255, 255, 0.8);
+      --glass-border: rgba(255, 255, 255, 0.4);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+      --shadow-md: 0 8px 30px rgba(0,0,0,0.08);
+      --shadow-lg: 0 20px 40px rgba(0,0,0,0.12);
+      --transition-speed: 0.4s;
+    }
+
+    .dark-mode {
+      --bg-color: #000000;
+      --card-bg: #1d1d1f;
+      --text-main: #f5f5f7;
+      --text-sub: #86868b;
+      --accent-blue: #2997ff;
+      --accent-blue-hover: #47a6ff;
+      --border-color: rgba(255, 255, 255, 0.1);
+      --glass-bg: rgba(29, 29, 31, 0.8);
+      --glass-border: rgba(255, 255, 255, 0.05);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+      --shadow-md: 0 8px 30px rgba(0,0,0,0.3);
+      --shadow-lg: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow-x: hidden;
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-color); }
+    ::-webkit-scrollbar-thumb { background: var(--text-sub); border-radius: 4px; }
+
+    /* Navigation Bar */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 48px;
+      backdrop-filter: blur(20px); background: var(--glass-bg);
+      border-bottom: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 24px; z-index: 1000;
+      transition: background-color var(--transition-speed), border-color var(--transition-speed);
+    }
+
+    .nav-left { display: flex; align-items: center; gap: 12px; }
+
+    .nav-logo {
+      font-family: var(--font-display); font-weight: 800; font-size: 18px;
+      color: var(--text-main); text-decoration: none;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .nav-links { display: flex; gap: 24px; list-style: none; }
+    .nav-links a {
+      color: var(--text-sub); text-decoration: none;
+      font-size: 12px; font-weight: 500; transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text-main); }
+
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+
+    .btn-toggle-mode, .btn-theme {
+      background: var(--text-main); color: var(--bg-color);
+      border: none; padding: 6px 14px; border-radius: 12px;
+      font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-toggle-mode:hover, .btn-theme:hover { opacity: 0.9; transform: scale(1.02); }
+    .btn-theme {
+      background: transparent; border: 1px solid var(--text-main); color: var(--text-main);
+    }
+
+    /* Sub-nav */
+    .subnav {
+      position: fixed; top: 48px; left: 0; right: 0; height: 52px;
+      background: var(--card-bg); border-bottom: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 40px; z-index: 999;
+      transition: background-color var(--transition-speed);
+    }
+    .subnav-title { font-size: 18px; font-weight: 600; color: var(--text-main); }
+    .subnav-links { display: flex; align-items: center; gap: 20px; }
+    .subnav-links span { font-size: 12px; color: var(--text-sub); }
+
+    .btn-primary {
+      background: var(--accent-blue); color: #ffffff;
+      border: none; padding: 6px 14px; border-radius: 20px;
+      font-size: 11px; font-weight: 500; cursor: pointer;
+      text-decoration: none; transition: background-color 0.2s;
+    }
+    .btn-primary:hover { background-color: var(--accent-blue-hover); }
+
+    /* Promo banner */
+    .promo-banner {
+      margin-top: 100px; background-color: #f5f5f7; color: #1d1d1f;
+      text-align: center; padding: 12px 20px; font-size: 11px; font-weight: 400;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+    .dark-mode .promo-banner {
+      background-color: #1d1d1f; color: #f5f5f7;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .promo-banner a { color: var(--accent-blue); text-decoration: none; }
+    .promo-banner a:hover { text-decoration: underline; }
+
+    /* VIEWS */
+    #product-view { display: block; }
+    #slideshow-view {
+      display: none; position: fixed; top: 100px; bottom: 0;
+      left: 0; right: 0; background: var(--bg-color); z-index: 900;
+    }
+
+    /* HERO */
+    .hero-section { text-align: center; padding: 60px 20px 40px; max-width: 1200px; margin: 0 auto; }
+    .hero-title {
+      font-family: var(--font-display); font-size: 72px; font-weight: 800;
+      letter-spacing: -2px; margin-bottom: 8px;
+    }
+    .hero-title .accent { color: var(--accent-red); }
+    .hero-subtitle {
+      font-size: 24px; color: var(--text-sub); font-weight: 400;
+      margin-bottom: 24px; letter-spacing: -0.5px;
+    }
+    .hero-ctas { display: flex; justify-content: center; gap: 16px; margin-bottom: 48px; }
+    .btn-hero-primary {
+      background: var(--accent-blue); color: white; padding: 12px 28px;
+      border-radius: 30px; font-size: 16px; font-weight: 500;
+      text-decoration: none; transition: opacity 0.2s;
+    }
+    .btn-hero-primary:hover { opacity: 0.9; }
+    .btn-hero-secondary {
+      color: var(--accent-blue); padding: 12px 28px; font-size: 16px;
+      font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 4px;
+    }
+    .btn-hero-secondary:hover { text-decoration: underline; }
+
+    /* CARDS GRID */
+    .cards-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px; padding: 0 40px 60px; max-width: 1300px; margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card-bg); border-radius: 28px; padding: 40px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      min-height: 520px; box-shadow: var(--shadow-sm);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      overflow: hidden; position: relative;
+      border: 1px solid var(--border-color);
+    }
+    .card:hover { transform: translateY(-6px); box-shadow: var(--shadow-md); }
+
+    .card-label {
+      font-size: 12px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--accent-blue); margin-bottom: 8px;
+    }
+    .card-title { font-size: 28px; font-weight: 700; margin-bottom: 12px; line-height: 1.2; }
+    .card-desc {
+      font-size: 14px; color: var(--text-sub); line-height: 1.5; margin-bottom: 24px;
+    }
+    .card-illustration {
+      flex-grow: 1; display: flex; align-items: center;
+      justify-content: center; margin-bottom: 24px; position: relative;
+    }
+    .card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid var(--border-color); padding-top: 20px;
+    }
+    .card-price { font-size: 13px; font-weight: 600; color: var(--text-main); }
+    .card-price span { display: block; font-size: 11px; color: var(--text-sub); font-weight: 400; }
+    .card-btn {
+      background: var(--accent-blue); color: white; border: none;
+      padding: 8px 18px; border-radius: 20px; font-size: 12px;
+      font-weight: 500; cursor: pointer; text-decoration: none;
+    }
+
+    /* CHESS PIECE RENDERING */
+    .chess-piece-circle {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 48px; height: 48px; border-radius: 50%; font-size: 20px;
+      font-weight: 700; color: #fff; font-family: serif;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+      border: 2px solid rgba(0,0,0,0.15);
+    }
+    .piece-red { background: radial-gradient(circle at 35% 35%, #fc8181, #c53030); }
+    .piece-black { background: radial-gradient(circle at 35% 35%, #4a5568, #1a202c); }
+    .piece-hidden { background: radial-gradient(circle at 35% 35%, #a0aec0, #4a5568); color: #cbd5e0; font-size: 14px; }
+
+    /* FLIP ANIMATION CARD */
+    .flip-demo {
+      display: flex; gap: 40px; align-items: center;
+    }
+    .flip-piece-stack {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .flip-label { font-size: 11px; color: var(--text-sub); font-weight: 600; }
+
+    /* ARCHITECTURE VISUALIZATION */
+    .arch-modules {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+      width: 100%; max-width: 500px;
+    }
+    .arch-module {
+      background: var(--bg-color); border: 1px solid var(--border-color);
+      border-radius: 12px; padding: 14px 10px; text-align: center;
+      font-size: 12px; font-weight: 600; color: var(--text-main);
+      transition: all 0.2s;
+    }
+    .arch-module.core { border-color: var(--accent-blue); background: rgba(0,102,204,0.05); }
+    .arch-module:hover { transform: scale(1.03); }
+
+    /* AI COMPARISON SECTION */
+    .ai-compare-container { max-width: 1200px; margin: 40px auto 80px; padding: 0 20px; }
+    .ai-compare-title-block { text-align: center; margin-bottom: 30px; }
+    .ai-compare-title-block h2 {
+      font-family: var(--font-display); font-size: 40px; font-weight: 700; margin-bottom: 10px;
+    }
+    .ai-compare-title-block p { color: var(--text-sub); font-size: 16px; }
+
+    .ai-cards-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .ai-cards-row { grid-template-columns: 1fr; }
+      .arch-modules { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .ai-card {
+      background: var(--card-bg); border-radius: 24px; padding: 32px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm); text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .ai-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .ai-card-icon { font-size: 48px; margin-bottom: 16px; }
+    .ai-card-name { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .ai-card-tagline { font-size: 13px; color: var(--text-sub); margin-bottom: 16px; }
+    .ai-card-stats { display: flex; justify-content: center; gap: 20px; margin-bottom: 16px; }
+    .ai-stat { text-align: center; }
+    .ai-stat-value { font-size: 22px; font-weight: 700; color: var(--accent-blue); }
+    .ai-stat-label { font-size: 10px; color: var(--text-sub); }
+    .ai-card-features {
+      list-style: none; text-align: left; font-size: 12px; color: var(--text-sub); line-height: 1.7;
+    }
+    .ai-card-features li::before { content: "✦ "; color: var(--accent-blue); }
+
+    /* Star badge */
+    .star-badge {
+      position: absolute; top: 20px; right: 20px;
+      background: var(--accent-orange); color: #fff;
+      font-size: 10px; font-weight: 700; padding: 4px 10px;
+      border-radius: 10px;
+    }
+
+    /* DETAILS SECTION */
+    .details-section { max-width: 1200px; margin: 0 auto 100px; padding: 0 20px; }
+    .details-tabs {
+      display: flex; justify-content: center; gap: 12px;
+      margin-bottom: 30px; border-bottom: 1px solid var(--border-color);
+      padding-bottom: 15px;
+    }
+    .tab-btn {
+      background: none; border: none; color: var(--text-sub);
+      font-size: 16px; font-weight: 600; padding: 8px 24px;
+      cursor: pointer; position: relative; transition: color 0.2s;
+    }
+    .tab-btn:hover { color: var(--text-main); }
+    .tab-btn.active { color: var(--text-main); }
+    .tab-btn.active::after {
+      content: ''; position: absolute; bottom: -16px; left: 0; right: 0;
+      height: 3px; background: var(--text-main); border-radius: 2px;
+    }
+
+    .tab-pane {
+      display: none; background: var(--card-bg); border-radius: 28px;
+      padding: 40px; border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+    }
+    .tab-pane.active { display: block; animation: fadeIn 0.3s ease-out; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .specs-grid {
+      display: grid; grid-template-columns: 1fr 1.2fr; gap: 40px;
+    }
+    @media (max-width: 800px) { .specs-grid { grid-template-columns: 1fr; } }
+
+    .specs-text h3 { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+    .specs-text p { color: var(--text-sub); line-height: 1.6; margin-bottom: 20px; font-size: 15px; }
+    .specs-list { list-style: none; }
+    .specs-list li {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 16px; font-size: 14px; line-height: 1.4;
+    }
+    .specs-list li svg { width: 18px; height: 18px; fill: var(--accent-green); flex-shrink: 0; margin-top: 2px; }
+
+    .specs-table-wrapper {
+      background: var(--bg-color); border-radius: 20px; padding: 24px;
+      border: 1px solid var(--border-color);
+    }
+    .specs-table { width: 100%; border-collapse: collapse; }
+    .specs-table th, .specs-table td {
+      padding: 12px 16px; text-align: left; font-size: 13px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .specs-table th { color: var(--text-sub); font-weight: 600; }
+    .specs-table td { color: var(--text-main); font-weight: 500; }
+    .specs-table tr:last-child th, .specs-table tr:last-child td { border-bottom: none; }
+
+    /* CODE VIEWER */
+    .code-viewer-layout {
+      display: grid; grid-template-columns: 280px 1fr; gap: 30px; min-height: 500px;
+    }
+    @media (max-width: 800px) { .code-viewer-layout { grid-template-columns: 1fr; } }
+
+    .code-nav { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .code-nav-btn {
+      width: 100%; background: none; border: 1px solid transparent;
+      color: var(--text-sub); padding: 14px 20px; text-align: left;
+      border-radius: 14px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .code-nav-btn:hover { color: var(--text-main); background: var(--bg-color); }
+    .code-nav-btn.active {
+      color: var(--text-main); background: var(--bg-color); border-color: var(--border-color);
+    }
+
+    .code-content-wrapper {
+      position: relative; background: #1e1e1e; border-radius: 20px;
+      overflow: hidden; box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .code-content-header {
+      background: #2d2d2d; padding: 12px 20px; display: flex;
+      justify-content: space-between; align-items: center; border-bottom: 1px solid #3d3d3d;
+    }
+    .code-filename { color: #9cdcfe; font-family: var(--font-mono); font-size: 12px; }
+    .code-controls { display: flex; gap: 6px; }
+    .code-control-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .code-control-dot.red { background: #ff5f56; }
+    .code-control-dot.yellow { background: #ffbd2e; }
+    .code-control-dot.green { background: #27c93f; }
+    .code-pre-scroll { padding: 24px; overflow: auto; max-height: 480px; margin: 0; }
+    .code-block {
+      color: #d4d4d4; font-family: var(--font-mono); font-size: 13px;
+      line-height: 1.5; white-space: pre;
+    }
+    .c-kw { color: #569cd6; font-weight: 500; }
+    .c-cm { color: #6a9955; }
+    .c-st { color: #ce9178; }
+    .c-num { color: #b5cea8; }
+    .c-fn { color: #dcdcaa; }
+    .c-var { color: #9cdcfe; }
+
+    /* Chess Board Doodle */
+    .chess-board-doodle {
+      display: grid; grid-template-columns: repeat(9, 1fr);
+      grid-template-rows: repeat(10, 1fr); gap: 1px;
+      width: 100%; max-width: 360px; aspect-ratio: 9/10;
+      background: #d4a76a; border: 3px solid #8b6914;
+      border-radius: 8px; padding: 4px;
+    }
+    .cb-cell {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; font-family: serif;
+      border-radius: 3px;
+    }
+
+    /* SLIDESHOW */
+    .slide-deck { width: 100%; height: 100%; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+    .slides-container { flex-grow: 1; position: relative; overflow: hidden; }
+    .slide {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      opacity: 0; visibility: hidden;
+      transform: scale(0.98) translateX(20px);
+      transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.5s;
+      padding: 60px 80px; display: flex; flex-direction: column;
+      justify-content: center; overflow-y: auto;
+    }
+    .slide.active {
+      opacity: 1; visibility: visible;
+      transform: scale(1) translateX(0);
+    }
+    .slide.prev-slide { transform: scale(0.98) translateX(-20px); }
+    .slide-title-area { margin-bottom: 40px; }
+    .slide-tag {
+      font-size: 14px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1.5px; color: var(--accent-blue); margin-bottom: 8px;
+    }
+    .slide-title {
+      font-family: var(--font-display); font-size: 48px; font-weight: 800; letter-spacing: -1px;
+    }
+    .slide-content-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    }
+    @media (max-width: 850px) {
+      .slide-content-grid { grid-template-columns: 1fr; gap: 30px; }
+      .slide { padding: 40px 30px; }
+      .slide-title { font-size: 32px; }
+    }
+    .slide-text-pane p {
+      font-size: 18px; line-height: 1.6; color: var(--text-sub); margin-bottom: 24px;
+    }
+    .slide-text-pane ul { list-style: none; padding-left: 0; }
+    .slide-text-pane li {
+      font-size: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px;
+    }
+    .slide-text-pane li::before { content: "•"; color: var(--accent-blue); font-size: 24px; line-height: 0; }
+    .slide-media-pane { display: flex; justify-content: center; align-items: center; }
+    .slide-center-layout { max-width: 800px; margin: 0 auto; text-align: center; }
+    .slide-quote { font-size: 32px; font-weight: 300; line-height: 1.4; margin-bottom: 30px; font-style: italic; }
+
+    /* Slide Controls Bar */
+    .slide-controls-bar {
+      height: 64px; background: var(--card-bg); border-top: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 40px; z-index: 10;
+      transition: background-color var(--transition-speed);
+    }
+    .slide-nav-btns { display: flex; gap: 16px; }
+    .btn-slide-nav {
+      background: var(--bg-color); border: 1px solid var(--border-color);
+      color: var(--text-main); width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-weight: bold; transition: all 0.2s;
+    }
+    .btn-slide-nav:hover { background: var(--border-color); }
+    .slide-progress-dots { display: flex; gap: 8px; }
+    .slide-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border-color); cursor: pointer; transition: all 0.2s;
+    }
+    .slide-dot.active { background: var(--text-main); transform: scale(1.3); }
+    .slide-page-num { font-size: 13px; color: var(--text-sub); font-weight: 500; }
+    .slide-card {
+      background: var(--card-bg); border-radius: 20px; padding: 30px;
+      border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
+    }
+    .slide-code-box {
+      background: #111111; border-radius: 16px; padding: 20px;
+      color: #e4e4e4; font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.4; text-align: left;
+      box-shadow: var(--shadow-sm); border: 1px solid rgba(255,255,255,0.05);
+      width: 100%;
+    }
+
+    /* FOOTER */
+    .footer {
+      background: var(--card-bg); border-top: 1px solid var(--border-color);
+      padding: 60px 40px 40px; text-align: center;
+      transition: background-color var(--transition-speed);
+    }
+    .footer-content { max-width: 1000px; margin: 0 auto; }
+    .footer-logo {
+      font-family: var(--font-display); font-weight: 800; font-size: 24px;
+      color: var(--text-main); margin-bottom: 20px;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .footer-links { display: flex; justify-content: center; gap: 30px; margin-bottom: 30px; list-style: none; }
+    .footer-links a { color: var(--text-sub); text-decoration: none; font-size: 13px; transition: color 0.2s; }
+    .footer-links a:hover { color: var(--text-main); }
+    .footer-copyright { font-size: 11px; color: var(--text-sub); }
+
+    /* Game tree visualization */
+    .game-tree-svg { width: 100%; max-width: 480px; }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="nav-left">
+      <a href="#" class="nav-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor" font-weight="700">帥</text>
+        </svg>
+        揭棋竞技场
+      </a>
+      <ul class="nav-links">
+        <li><a href="#product-view" onclick="setViewMode('product')">项目首页</a></li>
+        <li><a href="#ai-section">AI引擎</a></li>
+        <li><a href="#details-section">架构与代码</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <button class="btn-theme" id="theme-btn" onclick="toggleDarkMode()">深色模式</button>
+      <button class="btn-toggle-mode" id="view-mode-btn" onclick="toggleViewMode()">演示 PPT 模式</button>
+    </div>
+  </nav>
+
+  <!-- Sub navigation -->
+  <div class="subnav">
+    <div class="subnav-title">揭棋 AI 对战平台</div>
+    <div class="subnav-links">
+      <span>Java 21 · JavaFX · WebSocket</span>
+      <span>7 模块 Maven 架构</span>
+      <a href="#ai-section" class="btn-primary">了解 AI 引擎</a>
+    </div>
+  </div>
+
+  <!-- Promo Bar -->
+  <div class="promo-banner">
+    这是一个面向 2026 Java OOP 课程设计的揭棋 AI 对战平台。您可以切换到 <a href="#" onclick="toggleViewMode(); return false;">全屏幻灯片 (PPT) 演示模式</a> 来做学术汇报。
+  </div>
+
+  <!-- VIEW 1: PRODUCT PAGE -->
+  <div id="product-view">
+    <section class="hero-section">
+      <h1 class="hero-title">重新定义<span class="accent">揭棋</span>对弈</h1>
+      <p class="hero-subtitle">基于 Java 的模块化揭棋 AI 对战平台 —— 从规则引擎到智能决策的完整实现</p>
+      <div class="hero-ctas">
+        <a href="#ai-section" class="btn-hero-primary">探索 AI 引擎</a>
+        <a href="#details-section" class="btn-hero-secondary">
+          阅读技术架构
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </a>
+      </div>
+    </section>
+
+    <!-- Core Features Cards -->
+    <section class="cards-grid">
+      <!-- Card 1: AI Engine -->
+      <div class="card">
+        <div>
+          <div class="card-label">智能决策核心</div>
+          <h2 class="card-title">概率博弈的最优解</h2>
+          <p class="card-desc">Expectiminimax 搜索算法，引入机会节点对暗棋翻牌进行概率加权评估，结合 Alpha-Beta 剪枝、置换表、静态搜索与自适应深度，在对弈中实现智能决策。</p>
+        </div>
+        <div class="card-illustration">
+          <!-- AI search tree visualization -->
+          <svg class="game-tree-svg" viewBox="0 0 400 200">
+            <!-- Root -->
+            <circle cx="200" cy="20" r="14" fill="var(--accent-blue)" opacity="0.9"/>
+            <text x="200" y="25" text-anchor="middle" fill="white" font-size="10" font-weight="700">MAX</text>
+            <!-- Layer lines -->
+            <line x1="200" y1="34" x2="80" y2="80" stroke="var(--border-color)" stroke-width="1.5"/>
+            <line x1="200" y1="34" x2="200" y2="80" stroke="var(--border-color)" stroke-width="1.5"/>
+            <line x1="200" y1="34" x2="320" y2="80" stroke="var(--border-color)" stroke-width="1.5"/>
+            <!-- MIN nodes -->
+            <circle cx="80" cy="90" r="12" fill="var(--accent-red)" opacity="0.8"/>
+            <text x="80" y="95" text-anchor="middle" fill="white" font-size="9" font-weight="600">MIN</text>
+            <!-- Chance node -->
+            <circle cx="200" cy="90" r="12" fill="var(--accent-orange)" opacity="0.8"/>
+            <text x="200" y="95" text-anchor="middle" fill="white" font-size="9" font-weight="600">?</text>
+            <circle cx="320" cy="90" r="12" fill="var(--accent-red)" opacity="0.8"/>
+            <text x="320" y="95" text-anchor="middle" fill="white" font-size="9" font-weight="600">MIN</text>
+            <!-- Leaf lines from chance -->
+            <line x1="200" y1="102" x2="140" y2="145" stroke="var(--accent-orange)" stroke-width="1" stroke-dasharray="4,3"/>
+            <line x1="200" y1="102" x2="200" y2="145" stroke="var(--accent-orange)" stroke-width="1" stroke-dasharray="4,3"/>
+            <line x1="200" y1="102" x2="260" y2="145" stroke="var(--accent-orange)" stroke-width="1" stroke-dasharray="4,3"/>
+            <text x="130" y="140" fill="var(--accent-orange)" font-size="8">P=0.1</text>
+            <text x="185" y="140" fill="var(--accent-orange)" font-size="8">P=0.7</text>
+            <text x="260" y="140" fill="var(--accent-orange)" font-size="8">P=0.2</text>
+            <!-- Leaf labels from MIN lines -->
+            <circle cx="55" cy="140" r="8" fill="none" stroke="var(--accent-green)" stroke-width="1.5"/>
+            <text x="55" y="145" text-anchor="middle" fill="var(--accent-green)" font-size="8">+600</text>
+            <circle cx="320" cy="140" r="8" fill="none" stroke="var(--accent-green)" stroke-width="1.5"/>
+            <text x="320" y="145" text-anchor="middle" fill="var(--accent-green)" font-size="8">+30</text>
+            <!-- Pruned -->
+            <text x="95" y="130" fill="var(--text-sub)" font-size="8">⊘ 剪枝</text>
+            <!-- Expected value -->
+            <text x="195" y="170" fill="var(--accent-orange)" font-size="9" font-weight="600">E[x]=ΣP·v</text>
+          </svg>
+        </div>
+        <div class="card-footer">
+          <div class="card-price">
+            Expectiminimax 三层博弈树
+            <span>200K 置换表 · 静态搜索 · 自适应深度</span>
+          </div>
+          <span class="card-btn">核心算法</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Complete Rules Engine -->
+      <div class="card">
+        <div>
+          <div class="card-label">完备规则引擎</div>
+          <h2 class="card-title">迷雾下的战争法则</h2>
+          <p class="card-desc">完整实现揭棋特有规则：暗棋翻牌随机博彩、翻面后可过河出宫、80回合无吃子判和、6次连续将军/捉子限制、老将见面判定。所有棋子走法精确模拟。</p>
+        </div>
+        <div class="card-illustration">
+          <!-- Flip mechanics visualization -->
+          <div style="display: flex; align-items: center; gap: 30px;">
+            <!-- Before -->
+            <div style="text-align: center;">
+              <div class="chess-piece-circle piece-hidden" style="width: 56px; height: 56px; font-size: 16px;">暗</div>
+              <div style="font-size: 10px; color: var(--text-sub); margin-top: 6px;">翻面前</div>
+              <div style="font-size: 9px; color: var(--accent-blue);">按虚拟棋子走法</div>
+            </div>
+            <!-- Arrow -->
+            <svg width="40" height="24" viewBox="0 0 40 24">
+              <line x1="4" y1="12" x2="32" y2="12" stroke="var(--accent-orange)" stroke-width="2"/>
+              <polygon points="30,7 36,12 30,17" fill="var(--accent-orange)"/>
+            </svg>
+            <!-- After -->
+            <div style="text-align: center;">
+              <div class="chess-piece-circle piece-red" style="width: 56px; height: 56px;">車</div>
+              <div style="font-size: 10px; color: var(--text-sub); margin-top: 6px;">翻面后</div>
+              <div style="font-size: 9px; color: var(--accent-green);">揭示真实身份</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <div class="card-price">
+            暗棋池概率系统
+            <span>7种棋子类型 · 按剩余比例随机抽取</span>
+          </div>
+          <span class="card-btn">完备规则</span>
+        </div>
+      </div>
+
+      <!-- Card 3: Online Multiplayer -->
+      <div class="card">
+        <div>
+          <div class="card-label">联网对弈平台</div>
+          <h2 class="card-title">跨越屏幕的对局</h2>
+          <p class="card-desc">基于 WebSocket 的实时联网对弈。支持玩家大厅、快速匹配、邀请对局、先后手协商、60秒走棋时限、断线检测。服务器端仲裁翻牌结果与胜负判定，确保公平可靠。</p>
+        </div>
+        <div class="card-illustration">
+          <!-- Network topology -->
+          <svg width="280" height="180" viewBox="0 0 280 180">
+            <!-- Server -->
+            <rect x="105" y="65" width="70" height="50" rx="10" fill="var(--accent-blue)" opacity="0.15" stroke="var(--accent-blue)" stroke-width="2"/>
+            <text x="140" y="87" text-anchor="middle" fill="var(--accent-blue)" font-size="11" font-weight="700">🖥 服务器</text>
+            <text x="140" y="103" text-anchor="middle" fill="var(--accent-blue)" font-size="9">仲裁 · 同步</text>
+            <!-- Client 1 -->
+            <rect x="10" y="10" width="50" height="35" rx="8" fill="var(--card-bg)" stroke="var(--border-color)" stroke-width="1.5"/>
+            <text x="35" y="30" text-anchor="middle" fill="var(--text-main)" font-size="9" font-weight="600">👤 红方</text>
+            <!-- Client 2 -->
+            <rect x="220" y="135" width="50" height="35" rx="8" fill="var(--card-bg)" stroke="var(--border-color)" stroke-width="1.5"/>
+            <text x="245" y="155" text-anchor="middle" fill="var(--text-main)" font-size="9" font-weight="600">👤 黑方</text>
+            <!-- Connections -->
+            <line x1="60" y1="28" x2="105" y2="75" stroke="var(--accent-green)" stroke-width="2"/>
+            <line x1="175" y1="115" x2="220" y2="142" stroke="var(--accent-green)" stroke-width="2"/>
+            <!-- Labels -->
+            <text x="70" y="45" fill="var(--accent-green)" font-size="8">WebSocket</text>
+            <text x="180" y="140" fill="var(--accent-green)" font-size="8">WebSocket</text>
+            <!-- Lobby players -->
+            <rect x="200" y="15" width="55" height="25" rx="6" fill="rgba(52,199,89,0.08)" stroke="var(--accent-green)" stroke-width="1" stroke-dasharray="3,2"/>
+            <text x="227" y="31" text-anchor="middle" fill="var(--accent-green)" font-size="8">大厅·匹配</text>
+          </svg>
+        </div>
+        <div class="card-footer">
+          <div class="card-price">
+            WebSocket 实时通信
+            <span>60s 走棋时限 · 服务端仲裁 · Docker化部署</span>
+          </div>
+          <span class="card-btn">联网对战</span>
+        </div>
+      </div>
+
+      <!-- Card 4: GUI & Game Records -->
+      <div class="card">
+        <div>
+          <div class="card-label">优雅交互界面</div>
+          <h2 class="card-title">传统棋盘 · 现代体验</h2>
+          <p class="card-desc">JavaFX 构建的完整图形界面，支持真人 vs AI、本地 AI 对战、联网对弈三种模式。内置棋谱保存/复盘功能、走子提示、将军高亮、暗棋翻牌动画等交互细节。</p>
+        </div>
+        <div class="card-illustration">
+          <!-- Chess board mini representation -->
+          <div style="display: flex; gap: 16px; align-items: center;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+              <div class="chess-piece-circle piece-red" style="width: 36px; height: 36px; font-size: 14px;">帅</div>
+              <div class="chess-piece-circle piece-hidden" style="width: 36px; height: 36px; font-size: 11px;">暗</div>
+              <div class="chess-piece-circle piece-red" style="width: 36px; height: 36px; font-size: 14px;">兵</div>
+              <div class="chess-piece-circle piece-hidden" style="width: 36px; height: 36px; font-size: 11px;">暗</div>
+              <div class="chess-piece-circle piece-hidden" style="width: 36px; height: 36px; font-size: 11px;">暗</div>
+              <div class="chess-piece-circle piece-black" style="width: 36px; height: 36px; font-size: 14px;">車</div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-sub); text-align: center;">
+              <div>圆形棋子</div>
+              <div>走法高亮</div>
+              <div>将军提示</div>
+              <div style="margin-top: 6px; color: var(--accent-blue); font-weight: 600;">♟ 棋谱 · 复盘</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <div class="card-price">
+            JavaFX + Canvas 渲染
+            <span>本地双人对弈 · AI对弈 · 联网对弈</span>
+          </div>
+          <span class="card-btn">交互之美</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI Comparison Section -->
+    <section class="ai-compare-container" id="ai-section">
+      <div class="ai-compare-title-block">
+        <h2>三级智能体进化</h2>
+        <p>从随机落子到概率深搜 —— 三种 AI 引擎的阶梯式智能跃迁</p>
+      </div>
+
+      <div class="ai-cards-row">
+        <!-- Random -->
+        <div class="ai-card">
+          <div class="ai-card-icon">🎲</div>
+          <div class="ai-card-name">RandomAgent</div>
+          <div class="ai-card-tagline">纯随机基线 · 零智能</div>
+          <div class="ai-card-stats">
+            <div class="ai-stat">
+              <div class="ai-stat-value">~3%</div>
+              <div class="ai-stat-label">胜率 vs Greedy</div>
+            </div>
+            <div class="ai-stat">
+              <div class="ai-stat-value">&lt;1ms</div>
+              <div class="ai-stat-label">平均决策时间</div>
+            </div>
+          </div>
+          <ul class="ai-card-features">
+            <li>从合法走法中均匀随机选择</li>
+            <li>作为性能下界基准参考</li>
+            <li>偶尔走出出乎意料的妙招</li>
+            <li>零搜索开销，极速响应</li>
+          </ul>
+        </div>
+
+        <!-- Greedy -->
+        <div class="ai-card" style="position: relative;">
+          <span class="star-badge">实用之选</span>
+          <div class="ai-card-icon">🎯</div>
+          <div class="ai-card-name">GreedyAgent</div>
+          <div class="ai-card-tagline">单步最优 · 贪心评估</div>
+          <div class="ai-card-stats">
+            <div class="ai-stat">
+              <div class="ai-stat-value">~15%</div>
+              <div class="ai-stat-label">胜率 vs Expecti</div>
+            </div>
+            <div class="ai-stat">
+              <div class="ai-stat-value">~5ms</div>
+              <div class="ai-stat-label">平均决策时间</div>
+            </div>
+          </div>
+          <ul class="ai-card-features">
+            <li>对每个合法走法做一ply评估</li>
+            <li>翻牌走法按概率加权期望值</li>
+            <li>使用 MaterialEvaluator 估值</li>
+            <li>性价比极高的轻量级方案</li>
+          </ul>
+        </div>
+
+        <!-- Expectiminimax -->
+        <div class="ai-card" style="position: relative;">
+          <span class="star-badge">旗舰智能</span>
+          <div class="ai-card-icon">🧠</div>
+          <div class="ai-card-name">Expectiminimax</div>
+          <div class="ai-card-tagline">深度搜索 · 概率博弈</div>
+          <div class="ai-card-stats">
+            <div class="ai-stat">
+              <div class="ai-stat-value">~80%</div>
+              <div class="ai-stat-label">胜率 vs Greedy</div>
+            </div>
+            <div class="ai-stat">
+              <div class="ai-stat-value">~150ms</div>
+              <div class="ai-stat-label">平均决策时间</div>
+            </div>
+          </div>
+          <ul class="ai-card-features">
+            <li>Alpha-Beta 剪枝优化搜索</li>
+            <li>200K 条目置换表复用计算</li>
+            <li>自适应深度：将军/杀棋加深</li>
+            <li>安全过滤网：排除送将走法</li>
+            <li>翻牌记忆追踪已揭示棋子</li>
+            <li>静态搜索平滑估值突变</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- DETAILS SECTION -->
+    <section class="details-section" id="details-section">
+      <div class="details-tabs">
+        <button class="tab-btn active" onclick="switchTab('specs')">系统架构</button>
+        <button class="tab-btn" onclick="switchTab('code')">核心代码</button>
+        <button class="tab-btn" onclick="switchTab('ai')">AI 算法细节</button>
+      </div>
+
+      <!-- Tab 1: Architecture -->
+      <div class="tab-pane active" id="pane-specs">
+        <div class="specs-grid">
+          <div class="specs-text">
+            <h3>七模块分层架构</h3>
+            <p>项目采用 <strong>Maven 多模块</strong> 组织，严格遵循分层解耦原则。每个模块通过接口定义契约，底层模块不感知上层调用者，实现了<strong>高内聚、低耦合</strong>的设计目标。</p>
+            <ul class="specs-list">
+              <li>
+                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span><strong>不可变状态设计：</strong>GameState、Board、Move 均为不可变记录类。通过创建新实例而非修改推进状态，从根本上消除并发隐患。</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span><strong>信息隐藏原则：</strong>AI 仅接收 PlayerView（公开棋盘副本），永不获取暗棋真实身份。联网模式下，服务端不向客户端暴露对方暗棋信息。</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span><strong>可替换接口设计：</strong>Agent、Evaluator、GameEngine 均为接口。三种 AI 可热替换，估值函数与规则引擎均可独立演进。</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <div class="specs-table-wrapper">
+              <h4 style="margin-bottom:14px; font-weight:700;">模块依赖关系与职责</h4>
+              <table class="specs-table">
+                <thead><tr><th>模块</th><th>职责</th><th>依赖</th></tr></thead>
+                <tbody>
+                  <tr><th>jieqi-model</th><td>领域模型：棋子、棋盘、状态</td><td>—</td></tr>
+                  <tr><th>jieqi-rules</th><td>规则引擎：走法生成、胜负判定</td><td>model</td></tr>
+                  <tr><th>jieqi-ai</th><td>AI 引擎：评估与搜索</td><td>model, rules</td></tr>
+                  <tr><th>jieqi-protocol</th><td>网络协议：JSON 编解码</td><td>model</td></tr>
+                  <tr><th>jieqi-server</th><td>服务器：匹配、仲裁、同步</td><td>model, rules, protocol</td></tr>
+                  <tr><th>jieqi-gui</th><td>图形界面：JavaFX</td><td>model, rules, ai, protocol</td></tr>
+                  <tr style="background: rgba(0,102,204,0.05);"><th>jieqi-app</th><td>统一启动器</td><td>所有模块</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Code -->
+      <div class="tab-pane" id="pane-code">
+        <div class="code-viewer-layout">
+          <ul class="code-nav">
+            <li><button class="code-nav-btn active" onclick="setCodeSnippet('expecti')">Expectiminimax 搜索核心</button></li>
+            <li><button class="code-nav-btn" onclick="setCodeSnippet('rules')">走法合法性校验</button></li>
+            <li><button class="code-nav-btn" onclick="setCodeSnippet('flip')">暗棋翻牌随机机制</button></li>
+            <li><button class="code-nav-btn" onclick="setCodeSnippet('eval')">局面估值函数</button></li>
+          </ul>
+
+          <div class="code-content-wrapper">
+            <div class="code-content-header">
+              <span class="code-filename" id="code-file-label">ExpectiminimaxAgent.java > 搜索核心</span>
+              <div class="code-controls">
+                <span class="code-control-dot red"></span>
+                <span class="code-control-dot yellow"></span>
+                <span class="code-control-dot green"></span>
+              </div>
+            </div>
+            <pre class="code-pre-scroll"><code class="code-block" id="code-box-element">Loading...</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: AI Details -->
+      <div class="tab-pane" id="pane-ai">
+        <div class="specs-grid">
+          <div class="specs-text">
+            <h3>Expectiminimax 深度搜索</h3>
+            <p>区别于传统 Minimax，揭棋特有的暗棋翻牌引入了<strong>随机性</strong>——翻牌走法的结果不确定。Expectiminimax 在博弈树中引入<strong>机会节点</strong>，对每种可能的翻牌结果按其概率计算期望值，从而做出最优决策。</p>
+            <ul class="specs-list">
+              <li>
+                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span><strong>Alpha-Beta 剪枝：</strong>在 MAX/MIN 层剪枝减少搜索空间，提升搜索深度。机会节点不可剪枝但可用概率权重优化遍历顺序。</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span><strong>置换表 (Transposition Table)：</strong>200K 条目缓存，相同局面避免重复搜索。Key 由棋子位置、暗棋状态、历史翻牌信息哈希生成。</span>
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <span><strong>静态搜索 (Quiescence Search)：</strong>到达叶子节点后继续搜索吃子走法，避免"地平线效应"导致的估值误判。</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <div class="specs-table-wrapper">
+              <h4 style="margin-bottom:14px; font-weight:700;">搜索预算与自适应策略</h4>
+              <table class="specs-table">
+                <thead><tr><th>场景</th><th>搜索深度</th><th>说明</th></tr></thead>
+                <tbody>
+                  <tr><th>正常走子</th><td>2-3 层</td><td>基础搜索深度，确保合理走子</td></tr>
+                  <tr><th>被将军时</th><td>4-5 层</td><td>加深搜索，寻找解将或逃脱路径</td></tr>
+                  <tr><th>可杀棋时</th><td>6+ 层</td><td>最大深度，精确计算杀棋序列</td></tr>
+                  <tr><th>残局阶段</th><td>4 层</td><td>棋子减少后自动加深搜索</td></tr>
+                  <tr style="background: rgba(52,199,89,0.05);"><th>静态搜索</th><td>3 层</td><td>仅搜索吃子走法，平滑估值</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- VIEW 2: FULL SLIDESHOW VIEW -->
+  <div id="slideshow-view">
+    <div class="slide-deck">
+      <div class="slides-container">
+
+        <!-- Slide 1: Cover -->
+        <div class="slide active" id="slide-0">
+          <div class="slide-center-layout">
+            <span class="slide-tag">学术汇报演示</span>
+            <h1 class="slide-title" style="font-size: 60px; margin-bottom: 20px;">揭棋竞技场：<br>AI 对弈平台的完整实现</h1>
+            <p style="font-size: 24px; color: var(--text-sub); margin-bottom: 40px;">从规则引擎到智能决策的系统设计与工程实践</p>
+            <div style="font-size: 14px; color: var(--text-sub); line-height: 1.6;">
+              基于 Java 21 · 7 模块 Maven 架构 · 89 项自动化测试<br>
+              北京邮电大学 2026 Java OOP 课程设计
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 2: What is Jieqi -->
+        <div class="slide" id="slide-1">
+          <div class="slide-title-area">
+            <span class="slide-tag">项目背景</span>
+            <h2 class="slide-title">什么是揭棋？</h2>
+          </div>
+          <div class="slide-content-grid">
+            <div class="slide-text-pane">
+              <p>揭棋是中国象棋的变体，引入<strong>战争迷雾</strong>机制。除将/帅外所有棋子初始面朝下隐藏，首次移动或吃子时翻面揭示真实身份。</p>
+              <ul>
+                <li><strong>暗棋机制：</strong>隐藏棋子按其起始位置的"虚拟类型"移动，翻面后揭示从暗棋池随机抽取的真实类型。</li>
+                <li><strong>翻面后规则变化：</strong>士/仕、象/相翻面后可过河、出宫，不再受限。</li>
+                <li><strong>消灭将/帅即获胜：</strong>规则允许"送将"（不考虑逃将义务），将军不需躲避。</li>
+              </ul>
+            </div>
+            <div class="slide-media-pane">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <div class="chess-piece-circle piece-hidden" style="width: 52px; height: 52px; font-size: 15px;">暗</div>
+                <div class="chess-piece-circle piece-red" style="width: 52px; height: 52px; font-size: 18px;">帅</div>
+                <div class="chess-piece-circle piece-hidden" style="width: 52px; height: 52px; font-size: 15px;">暗</div>
+                <div class="chess-piece-circle piece-black" style="width: 52px; height: 52px; font-size: 18px;">車</div>
+                <div class="chess-piece-circle piece-hidden" style="width: 52px; height: 52px; font-size: 15px;">暗</div>
+                <div class="chess-piece-circle piece-red" style="width: 52px; height: 52px; font-size: 18px;">兵</div>
+              </div>
+              <div style="font-size: 11px; color: var(--text-sub); text-align: center; margin-top: 10px;">红色暗棋 · 揭开后随机变为車馬炮兵士相等</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 3: Architecture -->
+        <div class="slide" id="slide-2">
+          <div class="slide-title-area">
+            <span class="slide-tag">系统架构</span>
+            <h2 class="slide-title">七模块分层设计</h2>
+          </div>
+          <div class="slide-content-grid">
+            <div class="slide-text-pane">
+              <p>采用 Maven 多模块组织，严格分层解耦。每一个模块通过 Java 接口对外暴露契约，底层模块不感知上层调用者。</p>
+              <ul>
+                <li><strong>jieqi-model：</strong>不可变领域模型（Piece, Board, GameState 均为 Record）。</li>
+                <li><strong>jieqi-rules：</strong>StandardGameEngine 实现全部规则判定与走法生成。</li>
+                <li><strong>jieqi-ai：</strong>Agent 接口 + Expectiminimax / Greedy / Random 三层实现。</li>
+                <li><strong>jieqi-protocol / server：</strong>WebSocket 协议栈 + 大厅匹配与仲裁服务器。</li>
+              </ul>
+            </div>
+            <div class="slide-media-pane">
+              <div style="font-size: 12px; line-height: 1.8; color: var(--text-main); width: 100%;">
+                <div style="background: var(--bg-color); border: 1px solid var(--accent-blue); border-radius: 10px; padding: 10px 14px; margin-bottom: 6px;"><strong>jieqi-app</strong> ← 统一启动器</div>
+                <div style="margin-left: 12px; border-left: 2px solid var(--accent-blue); padding-left: 16px;">
+                  <div style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; margin-bottom: 4px;">jieqi-gui <span style="color: var(--text-sub);">(JavaFX 界面)</span></div>
+                  <div style="background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; margin-bottom: 4px;">jieqi-server <span style="color: var(--text-sub);">(WebSocket 服务器)</span></div>
+                  <div style="background: var(--bg-color); border: 1px solid var(--accent-green); border-radius: 8px; padding: 8px 12px; margin-bottom: 4px;">jieqi-ai <span style="color: var(--text-sub);">(AI 引擎层)</span></div>
+                  <div style="background: var(--bg-color); border: 1px solid var(--accent-green); border-radius: 8px; padding: 8px 12px; margin-bottom: 4px;">jieqi-rules <span style="color: var(--text-sub);">(规则引擎层)</span></div>
+                  <div style="background: var(--bg-color); border: 1px solid var(--accent-green); border-radius: 8px; padding: 8px 12px;">jieqi-model <span style="color: var(--text-sub);">(领域模型层)</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 4: AI Algorithm -->
+        <div class="slide" id="slide-3">
+          <div class="slide-title-area">
+            <span class="slide-tag">核心算法</span>
+            <h2 class="slide-title">Expectiminimax 搜索</h2>
+          </div>
+          <div class="slide-content-grid">
+            <div class="slide-text-pane">
+              <p>在揭棋中，翻牌走法具有随机性。传统 Minimax 无法处理随机节点。Expectiminimax 在博弈树中引入<strong>机会节点</strong>，以概率加权期望值指导决策。</p>
+              <ul>
+                <li><strong>Alpha-Beta 剪枝：</strong>在确定层剪枝，机会节点按期望值传播。</li>
+                <li><strong>置换表：</strong>200K 条目的 HashMap，Key 由 Zobrist 哈希生成。</li>
+                <li><strong>自适应深度：</strong>将军时加深至 5 层，可杀棋时 6+ 层，残局自动加深。</li>
+                <li><strong>安全过滤：</strong>搜索前先排除会导致己方被将的走法。</li>
+              </ul>
+            </div>
+            <div class="slide-media-pane">
+              <div class="slide-code-box" style="font-size: 11px;">
+<span class="c-cm">// 机会节点：枚举所有可能的翻牌结果</span>
+<span class="c-kw">for</span> (PieceType revealedType : possibleTypes) {
+    <span class="c-kw">double</span> prob = pool.probabilityOf(revealedType);
+    <span class="c-kw">double</span> newStateValue = expectiminimax(
+        stateAfterRevealing(revealedType),
+        depth - 1, alpha, beta, !isMaxPlayer
+    );
+    expectedValue += prob * newStateValue;
+    <span class="c-cm">// 机会节点不剪枝，但要累加概率</span>
+}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 5: Rules Engine -->
+        <div class="slide" id="slide-4">
+          <div class="slide-title-area">
+            <span class="slide-tag">规则实现</span>
+            <h2 class="slide-title">完备的揭棋规则引擎</h2>
+          </div>
+          <div class="slide-content-grid">
+            <div class="slide-text-pane">
+              <p>StandardGameEngine 近 550 行代码，覆盖揭棋所有规则细节，通过 89 项自动化测试验证：</p>
+              <ul>
+                <li><strong>7种棋子全部走法：</strong>车直行、马走日（蹩脚检测）、炮翻山（炮架检测）、兵/卒过河前后差异。</li>
+                <li><strong>边界与限制：</strong>飞将检测（将帅相对）、连将 6 次判负、兵卒连捉限制。</li>
+                <li><strong>终局判定：</strong>将帅被吃、无子可动（困毙判负）、80 回合无吃子判和。</li>
+              </ul>
+            </div>
+            <div class="slide-media-pane">
+              <div class="slide-card" style="width: 100%;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 11px;">
+                  <div style="background: rgba(0,102,204,0.06); padding: 10px; border-radius: 8px;">
+                    <strong>車/車</strong>
+                    <div style="color: var(--text-sub);">直线行走，无阻碍</div>
+                  </div>
+                  <div style="background: rgba(0,102,204,0.06); padding: 10px; border-radius: 8px;">
+                    <strong>馬/马</strong>
+                    <div style="color: var(--text-sub);">日字形 + 蹩脚检测</div>
+                  </div>
+                  <div style="background: rgba(0,102,204,0.06); padding: 10px; border-radius: 8px;">
+                    <strong>炮/砲</strong>
+                    <div style="color: var(--text-sub);">隔子吃，炮架检测</div>
+                  </div>
+                  <div style="background: rgba(0,102,204,0.06); padding: 10px; border-radius: 8px;">
+                    <strong>士/仕·象/相</strong>
+                    <div style="color: var(--text-sub);">翻面后可过河出宫</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 6: Networking -->
+        <div class="slide" id="slide-5">
+          <div class="slide-title-area">
+            <span class="slide-tag">联网架构</span>
+            <h2 class="slide-title">实时联网对弈系统</h2>
+          </div>
+          <div class="slide-content-grid">
+            <div class="slide-text-pane">
+              <p>基于 WebSocket 协议的全双工实时通信，支持多房间并发对弈：</p>
+              <ul>
+                <li><strong>玩家大厅：</strong>在线玩家列表、快速匹配队列、邀请/接受/拒绝机制。</li>
+                <li><strong>先后手协商：</strong>双方 Ready 后随机分配先手红方。</li>
+                <li><strong>服务端权威仲裁：</strong>走法合法性校验、暗棋翻牌随机抽取（仅服务器决定）、终局判定。</li>
+                <li><strong>超时与断线：</strong>60秒走棋时限 + 5秒网络宽限。心跳检测断线，超时判负。</li>
+              </ul>
+            </div>
+            <div class="slide-media-pane">
+              <div class="slide-code-box" style="font-size: 11px;">
+<span class="c-cm">// 服务端翻牌仲裁（唯一真相源头）</span>
+<span class="c-kw">private</span> PieceType drawRandomReveal(
+        HiddenPiecePool pool) {
+    List&lt;PieceType&gt; available = pool.remaining();
+    <span class="c-kw">int</span> total = available.stream()
+        .mapToInt(pool::count).sum();
+    <span class="c-kw">int</span> roll = random.nextInt(total);
+    <span class="c-cm">// 按概率区间抽取真实棋子类型</span>
+    <span class="c-kw">for</span> (PieceType t : available) {
+        roll -= pool.count(t);
+        <span class="c-kw">if</span> (roll < 0) <span class="c-kw">return</span> t;
+    }
+    <span class="c-kw">return</span> available.get(0);
+}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 7: Experiments -->
+        <div class="slide" id="slide-6">
+          <div class="slide-title-area">
+            <span class="slide-tag">实验结果</span>
+            <h2 class="slide-title">AI 批量对战与分析</h2>
+          </div>
+          <div class="slide-content-grid">
+            <div class="slide-text-pane">
+              <p>通过批量实验模块，对全部 AI 组合进行量化评估。每次实验包含多种配对、多组参数，统计胜率、平均步数、异常率等指标。</p>
+              <ul>
+                <li><strong>Expectiminimax vs Greedy：</strong>约 80% 胜率，印证深度搜索优势。</li>
+                <li><strong>Greedy vs Random：</strong>约 97% 胜率，单步贪心远超随机。</li>
+                <li><strong>平均走子时间：</strong>Expecti ~150ms, Greedy ~5ms, Random <1ms。</li>
+              </ul>
+            </div>
+            <div class="slide-media-pane">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%;">
+                <div style="background: rgba(52,199,89,0.08); padding: 20px; border-radius: 16px; border: 1px solid rgba(52,199,89,0.2); text-align: center;">
+                  <h3 style="font-size: 32px; font-weight: 800; color: var(--accent-green);">~80%</h3>
+                  <p style="font-size: 11px; color: var(--text-sub);">Expecti 胜率 vs Greedy</p>
+                </div>
+                <div style="background: rgba(41,151,255,0.08); padding: 20px; border-radius: 16px; border: 1px solid rgba(41,151,255,0.2); text-align: center;">
+                  <h3 style="font-size: 32px; font-weight: 800; color: var(--accent-blue);">89</h3>
+                  <p style="font-size: 11px; color: var(--text-sub);">自动化测试用例</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 8: Tech Stack Summary -->
+        <div class="slide" id="slide-7">
+          <div class="slide-title-area">
+            <span class="slide-tag">技术栈概览</span>
+            <h2 class="slide-title">现代 Java 工程实践</h2>
+          </div>
+          <div class="slide-content-grid">
+            <div class="slide-text-pane">
+              <p>项目采用 Java 21 最新特性，遵循现代软件工程最佳实践：</p>
+              <ul>
+                <li><strong>不可变状态：</strong>核心模型全 Record 类，纯函数式推进状态。</li>
+                <li><strong>接口隔离：</strong>Agent / Evaluator / GameEngine 三大可替换接口。</li>
+                <li><strong>Maven 多模块：</strong>严格依赖方向，底层不感知上层。</li>
+                <li><strong>CI 就绪：</strong>Docker Compose 一键部署，89 项 JUnit 5 测试。</li>
+              </ul>
+            </div>
+            <div class="slide-media-pane">
+              <div style="width: 100%; font-size: 13px; line-height: 2.2; color: var(--text-main);">
+                <div><span style="color: var(--accent-blue);">☕</span> Java 21 (Record, Sealed Class, Pattern Matching)</div>
+                <div><span style="color: var(--accent-blue);">📦</span> Maven 3.9+ 多模块构建</div>
+                <div><span style="color: var(--accent-blue);">🎨</span> JavaFX 21 + Canvas 棋盘渲染</div>
+                <div><span style="color: var(--accent-blue);">🔗</span> Java-WebSocket 1.5 实时通信</div>
+                <div><span style="color: var(--accent-blue);">🐳</span> Docker + JRE 21 容器化部署</div>
+                <div><span style="color: var(--accent-green);">✓</span> JUnit 5 + 89 项测试用例</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 9: Summary -->
+        <div class="slide" id="slide-8">
+          <div class="slide-center-layout">
+            <span class="slide-tag">项目总结与展望</span>
+            <h2 class="slide-title" style="margin-bottom: 24px;">让每一颗暗棋，都充满悬念</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; text-align: left; margin-bottom: 40px;">
+              <div class="slide-card">
+                <h4 style="font-weight: 700; margin-bottom: 8px;">已实现的能力</h4>
+                <p style="font-size: 13px; color: var(--text-sub); line-height: 1.4;">
+                  ✓ 完备揭棋规则引擎<br>
+                  ✓ 三级递进 AI 智能体<br>
+                  ✓ 联网对弈与玩家大厅<br>
+                  ✓ 批量 AI 实验框架<br>
+                  ✓ 棋谱保存与复盘<br>
+                  ✓ Docker 容器化部署
+                </p>
+              </div>
+              <div class="slide-card">
+                <h4 style="font-weight: 700; margin-bottom: 8px;">未来优化方向</h4>
+                <p style="font-size: 13px; color: var(--text-sub); line-height: 1.4;">
+                  → 更强的 AI（蒙特卡洛树搜索）<br>
+                  → 观战模式与聊天系统<br>
+                  → 网络棋谱录制与回放<br>
+                  → 断线重连机制<br>
+                  → 跨校 AI 联赛接口
+                </p>
+              </div>
+            </div>
+            <p style="font-size: 20px; font-weight: 700;">谢谢观看</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Slides Bottom Navigation -->
+      <div class="slide-controls-bar">
+        <div class="slide-page-num" id="slide-page-indicator">第 1 页 / 共 9 页</div>
+        <div class="slide-progress-dots" id="slide-dots-container"></div>
+        <div class="slide-nav-btns">
+          <button class="btn-slide-nav" onclick="prevSlide()">←</button>
+          <button class="btn-slide-nav" onclick="nextSlide()">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor" font-weight="700">帥</text>
+        </svg>
+        揭棋竞技场 · Jieqi Arena
+      </div>
+      <ul class="footer-links">
+        <li><a href="#product-view" onclick="setViewMode('product')">项目首页</a></li>
+        <li><a href="#ai-section">AI 引擎</a></li>
+        <li><a href="#details-section">技术架构</a></li>
+        <li><a href="#" onclick="toggleViewMode(); return false;">演示 PPT</a></li>
+      </ul>
+      <p class="footer-copyright">
+        本页面专为揭棋 AI 对战平台项目设计，采用 Apple 极简网页设计风格。<br>
+        基于 Java 21 · JavaFX · WebSocket · Maven 多模块架构<br>
+        © 2026 北京邮电大学 Java OOP 课程设计项目组
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // ----------------------------------------------------
+    // CODE SNIPPETS DICTIONARY
+    // ----------------------------------------------------
+    const CODE_SNIPPETS = {
+      expecti: `public Move chooseMove(PlayerView view, SearchBudget budget) {
+    int maxDepth = budget.maxDepth();
+    // 自适应深度：将军 +1，可杀棋 +2，残局 +1
+    if (isInCheck(view, view.currentTurn())) maxDepth += 1;
+    if (canCaptureKing(view)) maxDepth += 2;
+    if (isEndgame(view)) maxDepth += 1;
+
+    List<Move> legalMoves = view.legalMoves();
+    // 安全过滤：排除会导致己方被将的走法
+    List<Move> safe = filterSafeMoves(view, legalMoves);
+    if (safe.isEmpty()) safe = legalMoves;
+
+    // 走法排序：吃将 > 吃子 > 翻牌 > 普通
+    safe.sort(moveOrdering(view));
+
+    Move bestMove = safe.get(0);
+    double bestValue = Double.NEGATIVE_INFINITY;
+
+    for (Move move : safe) {
+        GameState next = engine.apply(view.gameState(), move);
+        double value = expectiminimax(
+            next, maxDepth - 1,
+            Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
+            false  // 下一层是最小化
+        );
+        if (value > bestValue) {
+            bestValue = value;
+            bestMove = move;
+        }
+    }
+    return bestMove;
+}`,
+
+      rules: `// Stalemate detection: no legal moves = loss
+if (legalMoves.isEmpty()) {
+    return isInCheck ? GameStatus.win(opposite(turn))
+                     : GameStatus.win(opposite(turn)); // 困毙判负
+}
+
+// 80 half-moves without capture = draw
+if (state.noCaptureCounter() >= 80) {
+    return GameStatus.DRAW;
+}
+
+// 6 consecutive checks or chases by same side = loss
+// (pawn chases excluded per rules)
+if (consecutiveChecksOrChases(sameSide) >= 6) {
+    return GameStatus.win(opposite(sameSide));
+}
+
+// Flying general detection: kings facing each other
+if (kingsAreFacing(board)) {
+    return MoveError.KINGS_FACING;
+}`,
+
+      flip: `// Apply a move: if the piece is hidden, reveal it
+public ApplyResult apply(GameState state, Move move) {
+    Piece piece = state.board().pieceAt(move.from());
+    GameState result = state;
+
+    if (piece != null && !piece.visible()) {
+        // Draw random real type from the hidden pool
+        PieceType revealed = state.hiddenPool()
+            .drawRandom(piece.owner());
+        piece = piece.revealAs(revealed);
+        result = state.withRevealedPiece(move.from(), piece);
+
+        events.add(new GameEvent.PieceRevealed(
+            move.from(), revealed));
+    }
+
+    // Execute capture or move
+    result = result.withMovedPiece(move.from(), move.to());
+    result = result.withTurn(result.turn().opposite());
+
+    return new ApplyResult(result, events, valid);
+}`,
+
+      eval: `public double evaluate(PlayerView view) {
+    double score = 0;
+
+    for (var entry : view.board().allPieces()) {
+        Piece piece = entry.getValue();
+        double value;
+
+        if (piece.visible()) {
+            // Visible piece: use its real value
+            value = piece.actualType().baseValue();
+            // Position bonuses
+            value += positionBonus(piece, entry.getKey());
+        } else {
+            // Hidden piece: use expected value from pool
+            value = view.hiddenPool()
+                .expectedValue(piece.owner());
+        }
+
+        score += (piece.owner() == view.currentTurn()
+                  ? value : -value);
+    }
+
+    // Mobility bonus
+    score += 30 * view.legalMoves().size();
+
+    // King capture threat
+    if (canCaptureEnemyKing(view))
+        score += WIN_SCORE / 2;
+
+    // Check pressure
+    if (isInCheck(view, view.currentTurn()))
+        score -= 15000;
+
+    return score;
+}`
+    };
+
+    function highlightJava(code) {
+      return code
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/(\/\/.*)/g, '<span class="c-cm">$1</span>')
+        .replace(/\b(public|private|protected|class|interface|enum|record|extends|implements|static|final|void|int|double|boolean|float|long|char|byte|short|new|return|if|else|for|while|do|switch|case|default|break|continue|throw|throws|try|catch|finally|import|package|this|super|null|true|false|var|instanceof|sealed|permits|yield)\b/g, '<span class="c-kw">$1</span>')
+        .replace(/\b(\d+\.?\d*|0x[0-9a-fA-F]+)\b/g, '<span class="c-num">$1</span>')
+        .replace(/\b([A-Z][a-zA-Z0-9]*)\b/g, (match) => {
+          // Class names generally start with uppercase
+          if (/^[A-Z]/.test(match) && !/^(Loading|Agent|GameState|Board|Move|Piece|PlayerView|SearchBudget|PieceType|ApplyResult|GameEvent|MoveError|StandardGameEngine|HiddenPiecePool|GameStatus|Color|Position|MaterialEvaluator|HashMap|ArrayList|List|Map|Set)$/.test(match)) return match;
+          return match;
+        });
+    }
+
+    function setCodeSnippet(key) {
+      document.querySelectorAll('.code-nav-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.code-nav-btn')).find(btn => btn.getAttribute('onclick').includes(key));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const label = document.getElementById('code-file-label');
+      const box = document.getElementById('code-box-element');
+
+      const labels = {
+        expecti: 'ExpectiminimaxAgent.java > 搜索核心',
+        rules: 'StandardGameEngine.java > 终局判定规则',
+        flip: 'StandardGameEngine.java > 暗棋翻牌机制',
+        eval: 'MaterialEvaluator.java > 局面估值函数'
+      };
+
+      label.innerText = labels[key];
+      box.innerHTML = highlightJava(CODE_SNIPPETS[key]);
+    }
+
+
+    // ----------------------------------------------------
+    // DARK MODE
+    // ----------------------------------------------------
+    let isDarkMode = false;
+    function toggleDarkMode() {
+      isDarkMode = !isDarkMode;
+      document.body.classList.toggle('dark-mode', isDarkMode);
+      document.getElementById('theme-btn').innerText = isDarkMode ? '浅色模式' : '深色模式';
+    }
+
+
+    // ----------------------------------------------------
+    // VIEW MODE SWITCHER
+    // ----------------------------------------------------
+    let currentView = 'product';
+    function toggleViewMode() {
+      setViewMode(currentView === 'product' ? 'slides' : 'product');
+    }
+
+    function setViewMode(mode) {
+      currentView = mode;
+      const pView = document.getElementById('product-view');
+      const sView = document.getElementById('slideshow-view');
+      const modeBtn = document.getElementById('view-mode-btn');
+
+      if (mode === 'product') {
+        pView.style.display = 'block';
+        sView.style.display = 'none';
+        modeBtn.innerText = '演示 PPT 模式';
+        document.body.style.overflowY = 'auto';
+      } else {
+        pView.style.display = 'none';
+        sView.style.display = 'block';
+        modeBtn.innerText = '退出 PPT 模式';
+        document.body.style.overflowY = 'hidden';
+        updateSlideDisplay();
+      }
+    }
+
+
+    // ----------------------------------------------------
+    // TAB PANE SWITCHER
+    // ----------------------------------------------------
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick').includes(tabId)) btn.classList.add('active');
+      });
+      document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+      });
+      document.getElementById('pane-' + tabId).classList.add('active');
+    }
+
+
+    // ----------------------------------------------------
+    // PPT SLIDE DECK LOGIC
+    // ----------------------------------------------------
+    let activeSlideIndex = 0;
+    const totalSlides = 9;
+
+    function initSlides() {
+      const dotsContainer = document.getElementById('slide-dots-container');
+      dotsContainer.innerHTML = '';
+      for (let i = 0; i < totalSlides; i++) {
+        const dot = document.createElement('div');
+        dot.className = `slide-dot ${i === 0 ? 'active' : ''}`;
+        dot.onclick = () => goToSlide(i);
+        dotsContainer.appendChild(dot);
+      }
+    }
+
+    function goToSlide(index) {
+      if (index < 0 || index >= totalSlides) return;
+      activeSlideIndex = index;
+
+      document.querySelectorAll('.slide').forEach((s, idx) => {
+        s.classList.remove('active', 'prev-slide');
+        if (idx === activeSlideIndex) {
+          s.classList.add('active');
+        } else if (idx < activeSlideIndex) {
+          s.classList.add('prev-slide');
+        }
+      });
+
+      document.querySelectorAll('.slide-dot').forEach((d, idx) => {
+        d.classList.toggle('active', idx === activeSlideIndex);
+      });
+
+      document.getElementById('slide-page-indicator').innerText =
+        `第 ${activeSlideIndex + 1} 页 / 共 ${totalSlides} 页`;
+    }
+
+    function nextSlide() {
+      if (activeSlideIndex < totalSlides - 1) {
+        goToSlide(activeSlideIndex + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (activeSlideIndex > 0) {
+        goToSlide(activeSlideIndex - 1);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (currentView === 'slides') {
+        if (e.key === 'ArrowRight' || e.key === ' ') {
+          e.preventDefault();
+          nextSlide();
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          prevSlide();
+        } else if (e.key === 'Escape') {
+          setViewMode('product');
+        }
+      }
+    });
+
+    function updateSlideDisplay() {
+      goToSlide(activeSlideIndex);
+    }
+
+
+    // ----------------------------------------------------
+    // INITIALIZATION
+    // ----------------------------------------------------
+    window.onload = function() {
+      setCodeSnippet('expecti');
+      initSlides();
+    };
+  </script>
+</body>
+</html>

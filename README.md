@@ -14,8 +14,19 @@
 - `jieqi-gui`：JavaFX 本地界面、本地 AI 对战、棋谱保存/复盘和批量 AI 实验。
 - `jieqi-app`：统一启动入口，负责转发 GUI、服务器和批量实验启动参数。
 
-根目录保留 Maven Wrapper、Docker 配置、作业原始资料和一键启动脚本；开发说明、协议约定、
-任务拆分和迭代记录放在 `docs/` 下。
+根目录保留 Maven Wrapper、Docker 配置和一键启动入口；开发说明、协议约定、
+任务拆分和迭代记录放在 `docs/` 下。作业原始资料、展示页和报告图片统一放在
+`resources/` 下，脚本主体放在 `scripts/` 下。
+
+## 目录说明
+
+- `jieqi-*`：Maven 业务模块。
+- `docs/`：架构说明、协议约定、任务拆分和迭代记录。
+- `resources/assignment/`：作业原始资料和老师答疑文件。
+- `resources/presentations/`：验收展示页面。
+- `resources/report-images/`：报告截图素材。
+- `scripts/`：GUI 和服务器启动脚本主体。
+- `run-gui.*`、`run-server.*`：根目录兼容入口，转发到 `scripts/`。
 
 ## 项目目标
 
@@ -30,11 +41,11 @@
 
 规定优先级：
 
-1. `问题回答.txt`
-2. `揭棋规则与协议待确认问题的老师解答.txt`
-3. `2026大作业公共接口.docx`
-4. `2026大作业——揭棋.docx`
-5. `Unvei接口文档- 张恒基.pdf` 中不冲突的参考内容
+1. `resources/assignment/问题回答.txt`
+2. `resources/assignment/揭棋规则与协议待确认问题的老师解答.txt`
+3. `resources/assignment/2026大作业公共接口.docx`
+4. `resources/assignment/2026大作业——揭棋.docx`
+5. `resources/assignment/Unvei接口文档- 张恒基.pdf` 中不冲突的参考内容
 
 ## 环境
 
@@ -125,6 +136,12 @@ macOS 一键运行：
 ./run-gui.sh
 ```
 
+也可以直接运行脚本主体：
+
+```bash
+./scripts/run-gui.sh
+```
+
 进入“真人对人工智能”后：
 
 1. 真人执红先行。
@@ -194,6 +211,12 @@ macOS：
 
 ```bash
 ./run-server.sh
+```
+
+也可以直接运行脚本主体：
+
+```bash
+./scripts/run-server.sh
 ```
 
 服务器默认监听：
@@ -272,6 +295,8 @@ Windows：
 .\mvnw.cmd install
 .\run-gui.cmd
 .\run-server.cmd
+.\scripts\run-gui.cmd
+.\scripts\run-server.cmd
 docker compose up --build
 ```
 
@@ -283,6 +308,8 @@ macOS：
 ./mvnw install
 ./run-gui.sh
 ./run-server.sh
+./scripts/run-gui.sh
+./scripts/run-server.sh
 docker compose up --build
 ```
 
