@@ -18,6 +18,7 @@ public final class JieqiLauncher {
             LocalAiVsAiExperiment.main(Arrays.copyOfRange(args, 1, args.length));
             return;
         }
+        JieqiApplication.configureServerControlFactory(EmbeddedServerControl::new);
         JieqiApplication.launchApp(args);
     }
 }

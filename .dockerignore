@@ -4,5 +4,10 @@
 .idea/
 .superpowers/
 .vscode/
+.benchmarks/
+docs/
+报告所用图片/
+*.docx
+*.pdf
 *.iml
 *.log

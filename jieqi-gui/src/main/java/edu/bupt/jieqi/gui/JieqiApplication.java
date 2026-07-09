@@ -1,6 +1,7 @@
 package edu.bupt.jieqi.gui;
 
 import java.util.List;
+import java.util.function.Supplier;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -16,7 +17,10 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 public final class JieqiApplication extends Application {
+    private static Supplier<ServerControl> serverControlFactory = UnsupportedServerControl::new;
+
     private NetworkLobbyView networkLobbyView;
+    private StartServerView startServerView;
 
     @Override
     public void start(Stage stage) {
@@ -73,6 +77,15 @@ public final class JieqiApplication extends Application {
             stage.getScene().setRoot(networkLobbyView);
             return;
         }
+        if ("启动对弈服务器".equals(mode)) {
+            if (startServerView == null) {
+                startServerView = new StartServerView(
+                        () -> stage.getScene().setRoot(home(stage)),
+                        serverControlFactory.get());
+            }
+            stage.getScene().setRoot(startServerView);
+            return;
+        }
         stage.getScene().setRoot(gameShell(stage, mode));
     }
 
@@ -125,14 +138,47 @@ public final class JieqiApplication extends Application {
         launch(args);
     }
 
+    public static void configureServerControlFactory(Supplier<ServerControl> factory) {
+        serverControlFactory = factory == null ? UnsupportedServerControl::new : factory;
+    }
+
     @Override
     public void stop() {
         if (networkLobbyView != null) {
             networkLobbyView.shutdown();
         }
+        if (startServerView != null) {
+            startServerView.shutdown();
+        }
     }
 
     public static void main(String[] args) {
         launchApp(args);
+    }
+
+    private static final class UnsupportedServerControl implements ServerControl {
+        @Override
+        public void setLogListener(java.util.function.Consumer<String> listener) {
+            listener.accept("当前启动方式未注入内嵌服务器实现，请通过 jieqi-app 启动图形界面。");
+        }
+
+        @Override
+        public boolean isRunning() {
+            return false;
+        }
+
+        @Override
+        public int port() {
+            return 8887;
+        }
+
+        @Override
+        public void start(int port) {
+            throw new IllegalStateException("未注入内嵌服务器实现");
+        }
+
+        @Override
+        public void stop() {
+        }
     }
 }
